@@ -30,7 +30,7 @@ public class ScheduledTask {
 
     @Scheduled(cron = "*/20 * * * * ?")
     public void executeOpenBrowser() throws IOException, InterruptedException {
-        System.setProperty("webdriver.chrome.driver","E:\\EROS\\chromedriver.exe");
+        System.setProperty("webdriver.chrome.driver","C:\\UBS\\Dev\\EROS\\ssi-bot\\chromedriver.exe");
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--test-type");
         options.addArguments("--headless");
@@ -43,7 +43,7 @@ public class ScheduledTask {
         commandParams.put("cmd", "Page.setDownloadBehavior");
         Map<String, String> params = new HashMap<>();
         params.put("behavior", "allow");
-        params.put("downloadPath", "E:\\EROS\\");
+        params.put("downloadPath", "C:\\UBS\\Dev\\EROS\\ssi-bot\\");
         commandParams.put("params", params);
         ObjectMapper objectMapper = new ObjectMapper();
         HttpClient httpClient = HttpClientBuilder.create().build();
