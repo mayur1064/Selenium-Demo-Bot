@@ -10,3 +10,11 @@ ROUND(SUM(BYTES - (BYTES * (BLOCKS / EXTENTS))))/1024/1024,2) AS "Used Space (MB
 ROUND(SUM(BYTES - (BYTES * (BLOCKS / EXTENTS))))/1024/1024,2) AS "Free Space (MB)"
 FROM DBA_DATA_FILES
 GROUP BY TABLESPACE_NAME;
+
+
+SELECT tablespace_name, SUM(bytes)/1024/1024 AS "Total Size (MB)",
+SUM(bytes - blocks*block_size)/1024/1024 AS "Used Space (MB)",
+SUM(blocks*block_size)/1024/1024 AS "Free Space (MB)"
+FROM dba_segments
+WHERE owner = '<schema_name>'
+GROUP BY tablespace_name;
