@@ -1,1 +1,1 @@
-mvn archetype:generate -DgroupId=com.example -DartifactId=my-function -Dversion=1.0-SNAPSHOT -DarchetypeGroupId=org.springframework.cloud -DarchetypeArtifactId=spring-cloud-function-archetype  -DarchetypeVersion=2.2.0.RELEASE
+managedBy:/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{managedIdentityObjectId}
