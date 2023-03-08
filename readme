@@ -1,1 +1,1 @@
-managedBy:/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{managedIdentityObjectId}
+az ad sp create-for-rbac --name MyServicePrincipal --role Contributor --scopes /subscriptions/<subscription_id>/resourceGroups/<resource_group_name>
