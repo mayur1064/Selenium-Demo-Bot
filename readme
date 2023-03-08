@@ -1,1 +1,4 @@
 az ad sp create-for-rbac --name MyServicePrincipal --role Contributor --scopes /subscriptions/<subscription_id>/resourceGroups/<resource_group_name>
+
+az ad sp create-for-rbac --name <service_principal_name> --role <role_name> --scopes <scope> --tags <tag1>='<tag1_value>' <tag2>='<tag2_value>' ...
+
