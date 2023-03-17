@@ -4,3 +4,5 @@ az ad sp create-for-rbac --name <service_principal_name> --role <role_name> --sc
 
 
 az login --service-principal --username <client-id> --password <client-secret> --tenant <tenant-id>
+
+az role assignment list --scope /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Storage/storageAccounts/<storage-account-name>
