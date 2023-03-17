@@ -6,3 +6,6 @@ az ad sp create-for-rbac --name <service_principal_name> --role <role_name> --sc
 az login --service-principal --username <client-id> --password <client-secret> --tenant <tenant-id>
 
 az role assignment list --scope /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Storage/storageAccounts/<storage-account-name>
+
+az role assignment create --role "Storage Blob Data Contributor" --assignee-object-id <service-principal-object-id> --scope "/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>/providers/Microsoft.Storage/storageAccounts/<storage-account-name>"
+
