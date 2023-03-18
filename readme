@@ -9,3 +9,4 @@ az role assignment list --scope /subscriptions/<subscription-id>/resourceGroups/
 
 az role assignment create --role "Storage Blob Data Contributor" --assignee-object-id <service-principal-object-id> --scope "/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>/providers/Microsoft.Storage/storageAccounts/<storage-account-name>"
 
+https://www.examtopics.com/exams/microsoft/az-900/
