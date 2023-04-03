@@ -20,3 +20,4 @@ https://www.udemy.com/course/az900-azure/
 https://youtu.be/NKEFWyqJ5XA
 
 
+az aks show --resource-group <resource-group-name> --name <aks-cluster-name> --query "agentPoolProfiles[].ipAddress" -o table
