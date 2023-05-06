@@ -1,37 +1,43 @@
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+export async function run() {
+  /**
+   * Insert your Outlook code here
+   */
 
-public class ApiExample {
-    public static void main(String[] args) {
-        try {
-            String apiEndpoint = "https://example.com/api/data";
-            String xApiToken = "your-x-api-token-here";
+  let body = ''
 
-            URL url = new URL(apiEndpoint);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("x-api-token", xApiToken);
+  async function outputResult(body){
+    console.log(body)
+    let response = await runAzure(body)
+    console.log(response.output)
+    document.getElementById('app-body').innerHTML = "<b> Summary: </b> <br/> " + response.output
+  }
 
-            int responseCode = connection.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                BufferedReader in = new BufferedReader(new InputStreamReader(
-                        connection.getInputStream()));
-                String inputLine;
-                StringBuilder response = new StringBuilder();
+  async function getBody() {
+    Office.context.mailbox.item.body.getAsync("text", function (result) {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        body = result.value
+        outputResult(body)
+      }
+    })
+  } 
 
-                while ((inputLine = in.readLine()) != null) {
-                    response.append(inputLine);
-                }
-                in.close();
+  async function runAzure(body) {
 
-                System.out.println(response.toString());
-            } else {
-                System.out.println("GET request not successful.");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+    const Url = 'https://openaifirst.azurewebsites.net/api/completionAPI?';
+    const bodyjson = '{"model":"text-davinci-003", "prompt":"summarize the following in 50 words or less: ' + body.replace(/['"]+/g, '').trim().replace(/(\r\n|\n|\r)/gm, "") + '", "max_tokens":200, "temperature":0}'
+    console.log(bodyjson)
+    const otherParam = {
+      body: bodyjson,
+      method: 'POST'
+    };
+
+    const response = await fetch(Url, otherParam);
+    var output = await response.text()
+
+    return {output}
+
+  }
+
+  await getBody()
+
 }
