@@ -1,30 +1,16 @@
 #!/bin/bash
 
-log_directory="/path/to/your/logs/directory"
-output_directory="/path/to/your/output/directory"
+# Specify the path to your text file
+file_path="your_file.txt"
 
-# Create the output directory if it doesn't exist
-mkdir -p "$output_directory"
+# Check if the file exists
+if [ ! -f "$file_path" ]; then
+    echo "File not found: $file_path"
+    exit 1
+fi
 
-# Iterate through log files
-for log_file in "$log_directory"/alert-data-service-out-*.log; do
-    if [ -f "$log_file" ]; then
-        # Extract the date from the log file name
-        date_str=$(basename "$log_file" | grep -oP '\d{4}-\d{2}-\d{2}')
-
-        # Get the last day of the week (Sunday) for the date
-        last_day_of_week=$(date -d "$date_str +1 day" -d 'next Sunday' '+%Y-%m-%d')
-
-        # Create a tar.gz file with the last day of the week in the name
-        tar_file="$output_directory/week-ending-$last_day_of_week-logs.tar.gz"
-        
-        if [ ! -f "$tar_file" ]; then
-            tar -czf "$tar_file" -C "$log_directory" "$(basename "$log_file")"
-        else
-            tar -rf "$tar_file" -C "$log_directory" "$(basename "$log_file")"
-        fi
-
-        # Remove the original log file
-        rm "$log_file"
-    fi
-done
+# Open the file and read each line
+while IFS= read -r line; do
+    # Process each line here
+    echo "Processing line: $line"
+done < "$file_path"
