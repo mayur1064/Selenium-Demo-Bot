@@ -11,3 +11,16 @@ end_marker='"markers"'
 substring=$(echo "$original_string" | sed -n 's|.*'"$start_marker"'\(.*\)'"$end_marker"'.*|\1|p')
 
 echo "Substring between markers: $substring"
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------
+
+#!/bin/bash
+
+# Original string
+original_string="/path/to/some/directory/file.txt"
+
+# Extract string after last "/"
+substring=$(echo "$original_string" | sed 's|.*/||')
+
+echo "String after last \"/\": $substring"
