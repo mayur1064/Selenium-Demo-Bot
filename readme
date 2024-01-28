@@ -1,16 +1,13 @@
 #!/bin/bash
 
-# Specify the path to your text file
-file_path="your_file.txt"
+# Original string
+original_string='This is the original string with the "substring" we want to "extract" between the two "markers".'
 
-# Check if the file exists
-if [ ! -f "$file_path" ]; then
-    echo "File not found: $file_path"
-    exit 1
-fi
+# Define the markers
+start_marker='"substring"'
+end_marker='"markers"'
 
-# Open the file and read each line
-while IFS= read -r line; do
-    # Process each line here
-    echo "Processing line: $line"
-done < "$file_path"
+# Extract substring between markers using sed with different delimiters
+substring=$(echo "$original_string" | sed -n 's|.*'"$start_marker"'\(.*\)'"$end_marker"'.*|\1|p')
+
+echo "Substring between markers: $substring"
