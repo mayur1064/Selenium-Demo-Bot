@@ -21,3 +21,12 @@ echo "This is a sample line" | awk -F'start_string|end_string' '{print $2}'
 grep 'pattern' input_file | awk '{split($3, a, "start_string|end_string"); print $1, a[2], $4}'
 
 
+awk '{
+    if (prev && /pattern/) {
+        print prev_words[3], prev_words[4], $2, $4;  # Print 3rd and 4th words from the previous line and 2nd and 4th words from the current line
+    }
+    split(prev, prev_words);  # Split the previous line into words
+    prev = $0;  # Store the current line as previous
+}' input_file
+
+
