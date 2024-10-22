@@ -15,3 +15,6 @@ while IFS= read -r line; do
         echo "No match: $second_word does not contain 'substring'"
     fi
 done <<< "$matches"
+
+echo "This is a sample line" | awk -F'start_string|end_string' '{print $2}'
+
