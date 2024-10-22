@@ -1,26 +1,28 @@
 #!/bin/bash
 
-# Original string
-original_string='This is the original string with the "substring" we want to "extract" between the two "markers".'
+# Variables
+LOG_DIR="/path/to/log/files"            # Directory where log files are stored
+OUTPUT_DIR="/path/to/output/directory"  # Directory to store output
+START_DATE="2024-10-10"                 # Start date for filtering files
+SEARCH_STRING="your_search_string"      # String to search in log files
 
-# Define the markers
-start_marker='"substring"'
-end_marker='"markers"'
+# Convert START_DATE to seconds since 1970-01-01 (Epoch time)
+START_DATE_EPOCH=$(date -d "$START_DATE" +%s)
 
-# Extract substring between markers using sed with different delimiters
-substring=$(echo "$original_string" | sed -n 's|.*'"$start_marker"'\(.*\)'"$end_marker"'.*|\1|p')
+# Create output directory if it doesn't exist
+mkdir -p "$OUTPUT_DIR"
 
-echo "Substring between markers: $substring"
+# Loop through log files in LOG_DIR
+for file in "$LOG_DIR"/service-*.log; do
+  # Extract the date part from the file name (assuming format service-YYYY-MM-DD.0.log)
+  FILE_DATE=$(basename "$file" | cut -d'-' -f2-4 | cut -d'.' -f1)
 
+  # Convert file date to seconds since 1970-01-01 (Epoch time)
+  FILE_DATE_EPOCH=$(date -d "$FILE_DATE" +%s)
 
------------------------------------------------------------------------------------------------------------------------------------------------
-
-#!/bin/bash
-
-# Original string
-original_string="/path/to/some/directory/file.txt"
-
-# Extract string after last "/"
-substring=$(echo "$original_string" | sed 's|.*/||')
-
-echo "String after last \"/\": $substring"
+  # Check if file date is greater than or equal to START_DATE
+  if [ "$FILE_DATE_EPOCH" -ge "$START_DATE_EPOCH" ]; then
+    # Grep the file for the search string and write to the output directory
+    grep "$SEARCH_STRING" "$file" > "$OUTPUT_DIR/$(basename "$file")"
+  fi
+done
