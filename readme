@@ -18,3 +18,6 @@ done <<< "$matches"
 
 echo "This is a sample line" | awk -F'start_string|end_string' '{print $2}'
 
+grep 'pattern' input_file | awk '{split($3, a, "start_string|end_string"); print $1, a[2], $4}'
+
+
