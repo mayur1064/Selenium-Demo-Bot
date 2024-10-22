@@ -1,28 +1,15 @@
 #!/bin/bash
 
-# Variables
-LOG_DIR="/path/to/log/files"            # Directory where log files are stored
-OUTPUT_DIR="/path/to/output/directory"  # Directory to store output
-START_DATE="2024-10-10"                 # Start date for filtering files
-SEARCH_STRING="your_search_string"      # String to search in log files
+# Set start date and today's date
+START_DATE="2024-10-04"
+END_DATE=$(date +%Y-%m-%d)  # This will give today's date
 
-# Convert START_DATE to seconds since 1970-01-01 (Epoch time)
-START_DATE_EPOCH=$(date -d "$START_DATE" +%s)
-
-# Create output directory if it doesn't exist
-mkdir -p "$OUTPUT_DIR"
-
-# Loop through log files in LOG_DIR
-for file in "$LOG_DIR"/service-*.log; do
-  # Extract the date part from the file name (assuming format service-YYYY-MM-DD.0.log)
-  FILE_DATE=$(basename "$file" | cut -d'-' -f2-4 | cut -d'.' -f1)
-
-  # Convert file date to seconds since 1970-01-01 (Epoch time)
-  FILE_DATE_EPOCH=$(date -d "$FILE_DATE" +%s)
-
-  # Check if file date is greater than or equal to START_DATE
-  if [ "$FILE_DATE_EPOCH" -ge "$START_DATE_EPOCH" ]; then
-    # Grep the file for the search string and write to the output directory
-    grep "$SEARCH_STRING" "$file" > "$OUTPUT_DIR/$(basename "$file")"
-  fi
+# Loop through dates from START_DATE to END_DATE
+current_date="$START_DATE"
+while [ "$current_date" != "$END_DATE" ]; do
+  echo "$current_date"  # Output the current date in YYYY-MM-DD format
+  current_date=$(date -I -d "$current_date + 1 day")  # Increment the date by 1 day
 done
+
+# Print the end date (optional)
+echo "$END_DATE"
