@@ -38,3 +38,63 @@ public class RestTemplateFactory {
                 .requestFactory(() -> requestFactory);
     }
 }
+
+
+import org.apache.http.client.HttpClient;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.ssl.SSLContextBuilder;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
+
+import java.io.File;
+import java.security.KeyStore;
+import javax.net.ssl.SSLContext;
+
+public class SslContextCreator {
+
+    public static HttpClient createHttpClient(String certFilePath, String keyFilePath, String password) throws Exception {
+        // Load certificate and key file into SSLContext
+        SSLContext sslContext = SSLContextBuilder.create()
+                .loadKeyMaterial(
+                        new File(certFilePath),         // Path to the certificate file (e.g., .pem or .crt)
+                        new File(keyFilePath),          // Path to the private key file (e.g., .key)
+                        password.toCharArray()          // Password for the private key (if applicable)
+                )
+                .build();
+
+        // Create SSLConnectionSocketFactory using SSLContext
+        SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(sslContext);
+
+        // Create HttpClient using the SSLConnectionSocketFactory
+        return HttpClients.custom()
+                .setSSLSocketFactory(socketFactory)
+                .build();
+    }
+
+    public static RestTemplate createRestTemplate(String certFilePath, String keyFilePath, String password) throws Exception {
+        // Create HttpClient with custom SSLContext
+        HttpClient httpClient = createHttpClient(certFilePath, keyFilePath, password);
+
+        // Create ClientHttpRequestFactory with HttpClient
+        ClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(httpClient);
+
+        // Create and return RestTemplate using the custom factory
+        return new RestTemplate(factory);
+    }
+
+    public static void main(String[] args) throws Exception {
+        // Example usage with certificate and key file
+        RestTemplate restTemplate = createRestTemplate(
+                "path/to/certificate.pem",  // Path to the certificate file
+                "path/to/private-key.pem",  // Path to the private key file
+                "keyPassword"               // Password for the key file (if any)
+        );
+
+        // Example request using RestTemplate
+        String response = restTemplate.getForObject("https://example.com/api", String.class);
+        System.out.println(response);
+    }
+}
