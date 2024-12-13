@@ -1,92 +1,40 @@
-#!/bin/bash
-
-# Grep the file for all matching lines
-matches=$(grep "your_search_pattern" your_file.txt)
-
-# Loop through each line found by grep
-while IFS= read -r line; do
-    # Extract the second word from each line
-    second_word=$(echo "$line" | awk '{print $2}')
-    
-    # Check if the second word contains a specific substring
-    if [[ "$second_word" == *"substring"* ]]; then
-        echo "Match found: $second_word contains 'substring'"
-    else
-        echo "No match: $second_word does not contain 'substring'"
-    fi
-done <<< "$matches"
-
-echo "This is a sample line" | awk -F'start_string|end_string' '{print $2}'
-
-grep 'pattern' input_file | awk '{split($3, a, "start_string|end_string"); print $1, a[2], $4}'
-
-
-awk '{
-    if (prev && /pattern/) {
-        print prev_words[3], prev_words[4], $2, $4;  # Print 3rd and 4th words from the previous line and 2nd and 4th words from the current line
-    }
-    split(prev, prev_words);  # Split the previous line into words
-    prev = $0;  # Store the current line as previous
-}' input_file
-
-
-
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.ssl.SSLContextBuilder;
-import org.apache.hc.core5.ssl.SSLContexts;
+import org.apache.http.client.HttpClient;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContextBuilder;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
-import javax.net.ssl.SSLContext;
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.KeyFactory;
-import java.security.KeyStore;
-import java.security.PrivateKey;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateFactory;
-import java.security.spec.PKCS8EncodedKeySpec;
 
-public class SslClientHttpRequestFactory {
+public class RestTemplateFactory {
 
-    public static HttpComponentsClientHttpRequestFactory createFactory(String certPath, String keyPath) throws Exception {
-        // Load the certificate
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        Certificate certificate;
-        try (var certInputStream = Files.newInputStream(Paths.get(certPath))) {
-            certificate = certificateFactory.generateCertificate(certInputStream);
-        }
-
-        // Load the private key
-        byte[] keyBytes = Files.readAllBytes(Paths.get(keyPath));
-        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        PrivateKey privateKey = keyFactory.generatePrivate(keySpec);
-
-        // Create KeyStore and load it
-        KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        keyStore.load(null, null);
-        keyStore.setKeyEntry("alias", privateKey, null, new Certificate[]{certificate});
-
-        // Build the SSLContext
-        SSLContext sslContext = SSLContexts.custom()
-                .loadKeyMaterial(keyStore, null) // No password for private key
+    public RestTemplateBuilder createRestTemplateBuilder(String certFilePath, String keyFilePath, String password) throws Exception {
+        // Build SSLContext using certificate and key file
+        var sslContext = SSLContextBuilder.create()
+                .loadKeyMaterial(
+                        new File(certFilePath),        // Path to the certificate file (e.g., .crt or .pem)
+                        new File(keyFilePath),        // Path to the private key file (e.g., .key)
+                        password.toCharArray()        // Password for the key file, if required
+                )
                 .build();
 
-        // Create HttpClient with SSLContext
+        // Create SSLConnectionSocketFactory
+        SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(sslContext);
+
+        // Create HttpClient with the custom SSL socket factory
         CloseableHttpClient httpClient = HttpClients.custom()
-                .setSSLContext(sslContext)
+                .setSSLSocketFactory(socketFactory)
                 .build();
 
-        // Create ClientHttpRequestFactory
-        return new HttpComponentsClientHttpRequestFactory(httpClient);
-    }
+        // Wrap HttpClient in a ClientHttpRequestFactory
+        ClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
 
-    public static RestTemplate createRestTemplate(String certPath, String keyPath) throws Exception {
-        return new RestTemplate(createFactory(certPath, keyPath));
+        // Create and return RestTemplateBuilder with the custom request factory
+        return new RestTemplateBuilder()
+                .requestFactory(() -> requestFactory);
     }
 }
-
-
