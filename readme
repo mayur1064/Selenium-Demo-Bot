@@ -1,100 +1,86 @@
-import org.apache.http.client.HttpClient;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.ssl.SSLContextBuilder;
-import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.http.client.ClientHttpRequestFactory;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
-import org.springframework.web.client.RestTemplate;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.vault.authentication.ClientCertificateAuthentication;
+import org.springframework.vault.client.VaultClients;
+import org.springframework.vault.client.VaultEndpoint;
+import org.springframework.vault.config.ClientHttpRequestFactoryFactory;
+import org.springframework.vault.core.VaultTemplate;
+import org.springframework.vault.support.SslConfiguration;
+import org.springframework.vault.support.SslConfiguration.KeyStoreConfiguration;
 
-import java.io.File;
-
-public class RestTemplateFactory {
-
-    public RestTemplateBuilder createRestTemplateBuilder(String certFilePath, String keyFilePath, String password) throws Exception {
-        // Build SSLContext using certificate and key file
-        var sslContext = SSLContextBuilder.create()
-                .loadKeyMaterial(
-                        new File(certFilePath),        // Path to the certificate file (e.g., .crt or .pem)
-                        new File(keyFilePath),        // Path to the private key file (e.g., .key)
-                        password.toCharArray()        // Password for the key file, if required
-                )
-                .build();
-
-        // Create SSLConnectionSocketFactory
-        SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(sslContext);
-
-        // Create HttpClient with the custom SSL socket factory
-        CloseableHttpClient httpClient = HttpClients.custom()
-                .setSSLSocketFactory(socketFactory)
-                .build();
-
-        // Wrap HttpClient in a ClientHttpRequestFactory
-        ClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
-
-        // Create and return RestTemplateBuilder with the custom request factory
-        return new RestTemplateBuilder()
-                .requestFactory(() -> requestFactory);
-    }
-}
-
-
-import org.apache.http.client.HttpClient;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.ssl.SSLContextBuilder;
-import org.springframework.http.client.ClientHttpRequestFactory;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
-import org.springframework.web.client.RestTemplate;
-
-import java.io.File;
+import javax.net.ssl.KeyManagerFactory;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.net.URI;
+import java.security.KeyFactory;
 import java.security.KeyStore;
-import javax.net.ssl.SSLContext;
+import java.security.PrivateKey;
+import java.security.Security;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Base64;
 
-public class SslContextCreator {
+@Configuration
+public class VaultConfig {
 
-    public static HttpClient createHttpClient(String certFilePath, String keyFilePath, String password) throws Exception {
-        // Load certificate and key file into SSLContext
-        SSLContext sslContext = SSLContextBuilder.create()
-                .loadKeyMaterial(
-                        new File(certFilePath),         // Path to the certificate file (e.g., .pem or .crt)
-                        new File(keyFilePath),          // Path to the private key file (e.g., .key)
-                        password.toCharArray()          // Password for the private key (if applicable)
-                )
-                .build();
+    private static final String VAULT_URI = "https://your-vault-server:8200";
+    private static final String CERT_PATH = "/path/to/your/certificate.pem";
+    private static final String KEY_PATH = "/path/to/your/private-key.pem";
+    private static final String PASSWORD = ""; // Empty or passphrase if any
 
-        // Create SSLConnectionSocketFactory using SSLContext
-        SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(sslContext);
-
-        // Create HttpClient using the SSLConnectionSocketFactory
-        return HttpClients.custom()
-                .setSSLSocketFactory(socketFactory)
-                .build();
+    static {
+        // Add BouncyCastle provider for PEM parsing
+        Security.addProvider(new BouncyCastleProvider());
     }
 
-    public static RestTemplate createRestTemplate(String certFilePath, String keyFilePath, String password) throws Exception {
-        // Create HttpClient with custom SSLContext
-        HttpClient httpClient = createHttpClient(certFilePath, keyFilePath, password);
+    @Bean
+    public VaultTemplate vaultTemplate() throws Exception {
+        // 1. Create a KeyStore dynamically in memory
+        KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        keyStore.load(null, null);
 
-        // Create ClientHttpRequestFactory with HttpClient
-        ClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(httpClient);
+        // Load certificate and key
+        Certificate certificate = loadCertificate(CERT_PATH);
+        PrivateKey privateKey = loadPrivateKey(KEY_PATH);
 
-        // Create and return RestTemplate using the custom factory
-        return new RestTemplate(factory);
+        // Add the certificate and private key to the KeyStore
+        keyStore.setKeyEntry("vault-client", privateKey, PASSWORD.toCharArray(), new Certificate[]{certificate});
+
+        // 2. Configure Vault endpoint
+        VaultEndpoint vaultEndpoint = VaultEndpoint.from(URI.create(VAULT_URI));
+
+        // 3. Create SslConfiguration
+        KeyStoreConfiguration keyStoreConfig = KeyStoreConfiguration.of(keyStore, PASSWORD.toCharArray());
+        SslConfiguration sslConfiguration = SslConfiguration.of(keyStoreConfig);
+
+        // 4. Set up Client Certificate Authentication
+        ClientCertificateAuthentication clientCertificateAuthentication = 
+                new ClientCertificateAuthentication(sslConfiguration);
+
+        // 5. Return VaultTemplate
+        return new VaultTemplate(vaultEndpoint, clientCertificateAuthentication,
+                ClientHttpRequestFactoryFactory.create(sslConfiguration));
     }
 
-    public static void main(String[] args) throws Exception {
-        // Example usage with certificate and key file
-        RestTemplate restTemplate = createRestTemplate(
-                "path/to/certificate.pem",  // Path to the certificate file
-                "path/to/private-key.pem",  // Path to the private key file
-                "keyPassword"               // Password for the key file (if any)
-        );
+    private Certificate loadCertificate(String certPath) throws Exception {
+        try (InputStream certInputStream = new FileInputStream(certPath)) {
+            CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+            return certFactory.generateCertificate(certInputStream);
+        }
+    }
 
-        // Example request using RestTemplate
-        String response = restTemplate.getForObject("https://example.com/api", String.class);
-        System.out.println(response);
+    private PrivateKey loadPrivateKey(String keyPath) throws Exception {
+        String keyContent = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(keyPath)));
+        keyContent = keyContent.replaceAll("-----BEGIN PRIVATE KEY-----", "")
+                               .replaceAll("-----END PRIVATE KEY-----", "")
+                               .replaceAll("\\s", "");
+
+        byte[] keyBytes = Base64.getDecoder().decode(keyContent);
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        return keyFactory.generatePrivate(keySpec);
     }
 }
