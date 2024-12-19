@@ -1,3 +1,9 @@
 openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in rsa_key.pem -out rsa_key_pkcs8.pem
 
 openssl x509 -in certificate.pem -text -noout
+
+insert_calendar: CustomDatesCalendar
+description: "Calendar with specific custom dates"
+date: 2024/12/25, 2024/12/31, 2025/01/01
+owner: my_user@my_domain
+
