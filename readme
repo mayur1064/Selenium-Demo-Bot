@@ -1,9 +1,32 @@
-openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in rsa_key.pem -out rsa_key_pkcs8.pem
+In Azure Kubernetes Service (AKS), a namespace is a logical grouping or partitioning mechanism used to organize and isolate resources within a 
+Kubernetes cluster. Namespaces allow you to divide cluster resources among multiple users, teams, or applications, 
+providing a way to manage and scope objects like pods, services, deployments, and other Kubernetes resources.
 
-openssl x509 -in certificate.pem -text -noout
 
-insert_calendar: CustomDatesCalendar
-description: "Calendar with specific custom dates"
-date: 2024/12/25, 2024/12/31, 2025/01/01
-owner: my_user@my_domain
+Service provides stable networking identity to the Pods consistent IP and DNS name, even if the underlying Pods change. It helps with Load Balancing and Service DIscovery 
+
+Pod is the smallest and most basic deployable unit in Kubernetes. It represents a single instance of a running process in your cluster and can contain one or more containers that share the same network, storage, and lifecycle.
+
+A Deployment is a higher-level Kubernetes resource used to manage and maintain a set of Pods , Rolling Updates & Rollbacks , and defines replicas , Scaling conditions , Self-Healing. 
+
+
+ VirtualService is a resource provided by Istio, a service mesh for Kubernetes, that controls how requests are routed within the cluster.
+ It enables traffic management, routing rules, authorization, and retries for microservices
+ 
+ServiceAccount is a special type of account used by Pods to authenticate with the Kubernetes API. It provides a way to control permissions and access for applications running inside Pods.
+Each Pod has its Default serviceAccount , and we can create custom Service Account as well , and assign roles to it 
+
+SecretProviderClass is a Custom Resource Definition (CRD) provided by the Azure Key Vault. It allows you to fetch secrets securely from Azure Key Vault and mount them as files inside a Pod.
+
+
+
+
+
+
+
+
+
+
+
+
 
