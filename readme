@@ -1,32 +1,37 @@
-In Azure Kubernetes Service (AKS), a namespace is a logical grouping or partitioning mechanism used to organize and isolate resources within a 
-Kubernetes cluster. Namespaces allow you to divide cluster resources among multiple users, teams, or applications, 
-providing a way to manage and scope objects like pods, services, deployments, and other Kubernetes resources.
+Key Components
+Azure Key Vault: A cloud service for securely storing and accessing secrets, keys, and certificates.
 
+Azure AD Workload Identity: Enables Kubernetes workloads to use Azure AD identities for authentication.
 
-Service provides stable networking identity to the Pods consistent IP and DNS name, even if the underlying Pods change. It helps with Load Balancing and Service DIscovery 
+SecretProviderClass: A custom resource in AKS that defines how secrets are fetched from Azure Key Vault.
 
-Pod is the smallest and most basic deployable unit in Kubernetes. It represents a single instance of a running process in your cluster and can contain one or more containers that share the same network, storage, and lifecycle.
+Managed Identity: An Azure AD identity (User-Assigned or System-Assigned) that represents the AKS cluster or workload.
 
-A Deployment is a higher-level Kubernetes resource used to manage and maintain a set of Pods , Rolling Updates & Rollbacks , and defines replicas , Scaling conditions , Self-Healing. 
+Federated Identity Credential: Links the Kubernetes service account to the Azure AD managed identity.
 
+Steps to Authenticate and Fetch Secrets
+Step 1: Enable Workload Identity in AKS
+Ensure that Workload Identity is enabled on your AKS cluster.
 
- VirtualService is a resource provided by Istio, a service mesh for Kubernetes, that controls how requests are routed within the cluster.
- It enables traffic management, routing rules, authorization, and retries for microservices
- 
-ServiceAccount is a special type of account used by Pods to authenticate with the Kubernetes API. It provides a way to control permissions and access for applications running inside Pods.
-Each Pod has its Default serviceAccount , and we can create custom Service Account as well , and assign roles to it 
+You can enable it during cluster creation or update an existing cluster.
 
-SecretProviderClass is a Custom Resource Definition (CRD) provided by the Azure Key Vault. It allows you to fetch secrets securely from Azure Key Vault and mount them as files inside a Pod.
+Step 2: Create a Managed Identity
+Create a User-Assigned Managed Identity in Azure.
 
+Assign the necessary permissions (e.g., Key Vault Secrets User) to this identity to access the Azure Key Vault.
 
+Step 3: Configure Federated Identity Credential
+Create a Federated Identity Credential in Azure AD to link the Kubernetes service account to the managed identity.
 
+Specify the AKS cluster's OIDC issuer URL and the Kubernetes service account name.
 
+Step 4: Create a Kubernetes Service Account
+Create a Kubernetes service account in your AKS cluster.
 
+Annotate the service account with the client ID of the managed identity:
 
+Step 5: Define the SecretProviderClass
+Create a SecretProviderClass custom resource to specify how secrets are fetched from Azure Key Vault.
 
-
-
-
-
-
-
+Step6: Deploy the Workload
+Deploy your workload (e.g., a Pod) and associate it with the service account and SecretProviderClass.
