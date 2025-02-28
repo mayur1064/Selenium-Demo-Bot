@@ -1,37 +1,52 @@
-Key Components
-Azure Key Vault: A cloud service for securely storing and accessing secrets, keys, and certificates.
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
-Azure AD Workload Identity: Enables Kubernetes workloads to use Azure AD identities for authentication.
+import java.io.File;
+import java.nio.file.Paths;
+import java.security.KeyStore;
 
-SecretProviderClass: A custom resource in AKS that defines how secrets are fetched from Azure Key Vault.
+@Configuration
+public class KeystoreLogger {
 
-Managed Identity: An Azure AD identity (User-Assigned or System-Assigned) that represents the AKS cluster or workload.
+    @Bean
+    public CommandLineRunner logKeystoreInfo() {
+        return args -> {
+            System.out.println("==== Checking System Properties for SSL Keystore ====");
+            logSystemProperty("javax.net.ssl.keyStore");
+            logSystemProperty("javax.net.ssl.keyStorePassword");
+            logSystemProperty("javax.net.ssl.keyStoreType");
 
-Federated Identity Credential: Links the Kubernetes service account to the Azure AD managed identity.
+            // Optional: If you want to validate the keystore exists
+            String keystorePath = System.getProperty("javax.net.ssl.keyStore");
+            if (keystorePath != null) {
+                File keystoreFile = Paths.get(keystorePath).toFile();
+                if (keystoreFile.exists()) {
+                    System.out.println("Keystore file exists: " + keystoreFile.getAbsolutePath());
+                    printKeystoreDetails(keystoreFile, System.getProperty("javax.net.ssl.keyStorePassword"));
+                } else {
+                    System.out.println("Keystore file not found: " + keystoreFile.getAbsolutePath());
+                }
+            } else {
+                System.out.println("No javax.net.ssl.keyStore property set.");
+            }
+        };
+    }
 
-Steps to Authenticate and Fetch Secrets
-Step 1: Enable Workload Identity in AKS
-Ensure that Workload Identity is enabled on your AKS cluster.
+    private void logSystemProperty(String property) {
+        System.out.println(property + ": " + System.getProperty(property));
+    }
 
-You can enable it during cluster creation or update an existing cluster.
-
-Step 2: Create a Managed Identity
-Create a User-Assigned Managed Identity in Azure.
-
-Assign the necessary permissions (e.g., Key Vault Secrets User) to this identity to access the Azure Key Vault.
-
-Step 3: Configure Federated Identity Credential
-Create a Federated Identity Credential in Azure AD to link the Kubernetes service account to the managed identity.
-
-Specify the AKS cluster's OIDC issuer URL and the Kubernetes service account name.
-
-Step 4: Create a Kubernetes Service Account
-Create a Kubernetes service account in your AKS cluster.
-
-Annotate the service account with the client ID of the managed identity:
-
-Step 5: Define the SecretProviderClass
-Create a SecretProviderClass custom resource to specify how secrets are fetched from Azure Key Vault.
-
-Step6: Deploy the Workload
-Deploy your workload (e.g., a Pod) and associate it with the service account and SecretProviderClass.
+    private void printKeystoreDetails(File keystoreFile, String password) {
+        try {
+            KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+            try (var fis = new java.io.FileInputStream(keystoreFile)) {
+                keyStore.load(fis, (password != null ? password.toCharArray() : null));
+                System.out.println("Keystore Type: " + keyStore.getType());
+                System.out.println("Keystore contains " + keyStore.size() + " entries.");
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to load keystore: " + e.getMessage());
+        }
+    }
+}
