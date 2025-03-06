@@ -50,3 +50,12 @@ public class KeystoreLogger {
         }
     }
 }
+
+Paid By	Expense	Amount	Shared by		
+Manoj	Fish	3600	All		
+Sekhar 	Room Fare	4900	All		
+Dilip	CAB	835	Dilip Mayur Yogesh Vishal Sekhar 		
+Dilip	CAB	270	Dilip Mayur		
+Dilip	Wine	1600	Dilip Manoj		
+Sushant	CNG	1185	All		
+Sushant	Breakfast	440	All		
