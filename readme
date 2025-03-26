@@ -1,61 +1,126 @@
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper
+  namespace: zookeeper-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+      - name: zookeeper
+        image: zookeeper:3.8  # Or your preferred version
+        ports:
+        - containerPort: 2181
+        env:
+        - name: ZOO_MY_ID
+          value: "1"
+        - name: ZOO_SERVERS
+          value: "server.1=0.0.0.0:2888:3888"
+        - name: ZOO_PORT
+          value: "2181"
 
-import java.io.File;
-import java.nio.file.Paths;
-import java.security.KeyStore;
 
-@Configuration
-public class KeystoreLogger {
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-service
+  namespace: zookeeper-ns
+spec:
+  ports:
+  - port: 2181
+    targetPort: 2181
+    protocol: TCP
+  selector:
+    app: zookeeper
 
-    @Bean
-    public CommandLineRunner logKeystoreInfo() {
-        return args -> {
-            System.out.println("==== Checking System Properties for SSL Keystore ====");
-            logSystemProperty("javax.net.ssl.keyStore");
-            logSystemProperty("javax.net.ssl.keyStorePassword");
-            logSystemProperty("javax.net.ssl.keyStoreType");
 
-            // Optional: If you want to validate the keystore exists
-            String keystorePath = System.getProperty("javax.net.ssl.keyStore");
-            if (keystorePath != null) {
-                File keystoreFile = Paths.get(keystorePath).toFile();
-                if (keystoreFile.exists()) {
-                    System.out.println("Keystore file exists: " + keystoreFile.getAbsolutePath());
-                    printKeystoreDetails(keystoreFile, System.getProperty("javax.net.ssl.keyStorePassword"));
-                } else {
-                    System.out.println("Keystore file not found: " + keystoreFile.getAbsolutePath());
-                }
-            } else {
-                System.out.println("No javax.net.ssl.keyStore property set.");
-            }
-        };
-    }
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zookeeper-config
+  namespace: zookeeper-ns
+data:
+  zoo.cfg: |
+    tickTime=2000
+    initLimit=10
+    syncLimit=5
+    dataDir=/data
+    clientPort=2181
+    server.1=zookeeper-0.zookeeper-service:2888:3888
+    server.2=zookeeper-1.zookeeper-service:2888:3888
+    server.3=zookeeper-2.zookeeper-service:2888:3888
 
-    private void logSystemProperty(String property) {
-        System.out.println(property + ": " + System.getProperty(property));
-    }
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-service
+  namespace: zookeeper-ns
+spec:
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
+    - name: follower
+      port: 2888
+      targetPort: 2888
+    - name: election
+      port: 3888
+      targetPort: 3888
+  clusterIP: None  # Headless service for StatefulSet
+  selector:
+    app: zookeeper
 
-    private void printKeystoreDetails(File keystoreFile, String password) {
-        try {
-            KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-            try (var fis = new java.io.FileInputStream(keystoreFile)) {
-                keyStore.load(fis, (password != null ? password.toCharArray() : null));
-                System.out.println("Keystore Type: " + keyStore.getType());
-                System.out.println("Keystore contains " + keyStore.size() + " entries.");
-            }
-        } catch (Exception e) {
-            System.err.println("Failed to load keystore: " + e.getMessage());
-        }
-    }
-}
-
-Paid By	Expense	Amount	Shared by		
-Manoj	Fish	3600	All		
-Sekhar 	Room Fare	4900	All		
-Dilip	CAB	835	Dilip Mayur Yogesh Vishal Sekhar 		
-Dilip	CAB	270	Dilip Mayur		
-Dilip	Wine	1600	Dilip Manoj		
-Sushant	CNG	1185	All		
-Sushant	Breakfast	440	All		
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: zookeeper-ns
+spec:
+  serviceName: zookeeper-service
+  replicas: 3
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+        - name: zookeeper
+          image: zookeeper:3.8
+          ports:
+            - containerPort: 2181
+            - containerPort: 2888
+            - containerPort: 3888
+          env:
+            - name: ZOO_MY_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: ZOO_CFG
+              value: "/conf/zoo.cfg"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /conf
+      volumes:
+        - name: config
+          configMap:
+            name: zookeeper-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
