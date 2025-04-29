@@ -1,49 +1,114 @@
-@Configuration
-@EnableWebSecurity
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 
-    private static final Set<String> ALLOWED_USERS = Set.of(
-        "user1@yourdomain.com",
-        "user2@yourdomain.com"
+import java.util.Arrays;
+import java.util.List;
+
+@Configuration
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+    
+    // Static list of allowed usernames
+    private static final List<String> ALLOWED_USERS = Arrays.asList(
+        "user1@domain.com",
+        "user2@domain.com",
+        "user3@domain.com"
     );
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http
             .authorizeRequests()
-                .antMatchers("/login**", "/error**").permitAll()
+                .antMatchers("/login").permitAll()
                 .anyRequest().authenticated()
             .and()
             .oauth2Login()
+                .loginPage("/login")
                 .defaultSuccessUrl("/", true)
                 .userInfoEndpoint()
-                .userService(this.oauth2UserService())
-            .and()
-            .and()
-            .logout()
-                .logoutSuccessUrl("/")
-            .and()
-            .csrf().disable();
-
+                    .oidcUserService(this.oidcUserService());
+        
         // Disable form login
         http.formLogin().disable();
     }
 
-    private OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserService() {
-        return request -> {
-            DefaultOAuth2UserService delegate = new DefaultOAuth2UserService();
-            OAuth2User user = delegate.loadUser(request);
-
-            String username = user.getAttribute("preferred_username"); // or "email"
+    private OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
+        return userRequest -> {
+            OidcUser user = new OidcUserService().loadUser(userRequest);
+            
+            // Extract username (email) from claims
+            String username = user.getAttribute("email") != null 
+                ? user.getAttribute("email") 
+                : user.getAttribute("preferred_username");
+            
+            // Validate against allowed users
             if (!ALLOWED_USERS.contains(username)) {
-                throw new AccessDeniedException("User not authorized");
+                throw new RuntimeException("User not authorized");
             }
-
-            return new DefaultOAuth2User(
-                user.getAuthorities(),
-                user.getAttributes(),
-                "preferred_username" // or "email"
-            );
+            
+            return user;
         };
+    }
+}
+
+
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class LoginController {
+
+    @GetMapping("/login")
+    public String login() {
+        return "redirect:/oauth2/authorization/azure";
+    }
+}
+
+
+import de.codecentric.boot.admin.server.config.AdminServerProperties;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+
+@Configuration
+public class AdminSecurityConfig extends WebSecurityConfigurerAdapter {
+    private final String adminContextPath;
+
+    public AdminSecurityConfig(AdminServerProperties adminServerProperties) {
+        this.adminContextPath = adminServerProperties.getContextPath();
+    }
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        SavedRequestAwareAuthenticationSuccessHandler successHandler = 
+            new SavedRequestAwareAuthenticationSuccessHandler();
+        successHandler.setTargetUrlParameter("redirectTo");
+        successHandler.setDefaultTargetUrl(adminContextPath + "/");
+
+        http
+            .authorizeRequests()
+                .antMatchers(adminContextPath + "/assets/**").permitAll()
+                .antMatchers(adminContextPath + "/login").permitAll()
+                .anyRequest().authenticated()
+            .and()
+            .oauth2Login()
+                .loginPage(adminContextPath + "/login")
+                .successHandler(successHandler)
+            .and()
+            .logout()
+                .logoutUrl(adminContextPath + "/logout")
+            .and()
+            .csrf()
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .ignoringAntMatchers(
+                    adminContextPath + "/instances",
+                    adminContextPath + "/actuator/**"
+                );
     }
 }
