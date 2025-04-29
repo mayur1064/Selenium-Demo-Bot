@@ -1,37 +1,40 @@
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import java.util.Set;
 
 @Configuration
-public class SecurityConfig {
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     private static final Set<String> ALLOWED_USERNAMES = Set.of(
             "user1@yourdomain.com",
             "user2@yourdomain.com"
     );
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
         http
-            .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/assets/**", "/login").permitAll()
-                .anyRequest().access((authentication, context) -> {
-                    var principal = (OidcUser) authentication.get().getPrincipal();
-                    String username = principal.getEmail(); // or principal.getPreferredUsername()
-                    if (ALLOWED_USERNAMES.contains(username)) {
-                        return context.grant();
-                    } else {
-                        return context.deny();
+            .authorizeRequests()
+                .antMatchers("/assets/**", "/login**").permitAll()
+                .anyRequest().access((authentication, object) -> {
+                    if (authentication.getPrincipal() instanceof OidcUser) {
+                        OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
+                        String username = oidcUser.getEmail();
+                        return ALLOWED_USERNAMES.contains(username)
+                                ? org.springframework.security.access.AccessDecisionVoter.ACCESS_GRANTED
+                                : org.springframework.security.access.AccessDecisionVoter.ACCESS_DENIED;
                     }
+                    return org.springframework.security.access.AccessDecisionVoter.ACCESS_DENIED;
                 })
-            )
+            .and()
             .oauth2Login()
             .and()
-            .logout().logoutSuccessUrl("/");
-        return http.build();
+            .logout()
+                .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
+                .logoutSuccessUrl("/")
+                .permitAll();
     }
 }
