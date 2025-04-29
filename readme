@@ -38,3 +38,23 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .permitAll();
     }
 }
+
+
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
+
+private OidcUser checkAllowedUser(OidcUserRequest userRequest) {
+    OidcUserService delegate = new OidcUserService();
+    OidcUser oidcUser = delegate.loadUser(userRequest);
+
+    String username = oidcUser.getEmail(); // try getPreferredUsername() if this is null
+
+    Set<String> allowed = Set.of("user1@yourdomain.com", "user2@yourdomain.com");
+    if (!allowed.contains(username)) {
+        throw new RuntimeException("Access denied: " + username);
+    }
+
+    return oidcUser;
+}
+
