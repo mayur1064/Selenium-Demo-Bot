@@ -1,60 +1,49 @@
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
-
-import java.util.Set;
-
 @Configuration
+@EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
-    private static final Set<String> ALLOWED_USERNAMES = Set.of(
-            "user1@yourdomain.com",
-            "user2@yourdomain.com"
+    private static final Set<String> ALLOWED_USERS = Set.of(
+        "user1@yourdomain.com",
+        "user2@yourdomain.com"
     );
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http
             .authorizeRequests()
-                .antMatchers("/assets/**", "/login**").permitAll()
-                .anyRequest().access((authentication, object) -> {
-                    if (authentication.getPrincipal() instanceof OidcUser) {
-                        OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
-                        String username = oidcUser.getEmail();
-                        return ALLOWED_USERNAMES.contains(username)
-                                ? org.springframework.security.access.AccessDecisionVoter.ACCESS_GRANTED
-                                : org.springframework.security.access.AccessDecisionVoter.ACCESS_DENIED;
-                    }
-                    return org.springframework.security.access.AccessDecisionVoter.ACCESS_DENIED;
-                })
+                .antMatchers("/login**", "/error**").permitAll()
+                .anyRequest().authenticated()
             .and()
             .oauth2Login()
+                .defaultSuccessUrl("/", true)
+                .userInfoEndpoint()
+                .userService(this.oauth2UserService())
+            .and()
             .and()
             .logout()
-                .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
                 .logoutSuccessUrl("/")
-                .permitAll();
-    }
-}
+            .and()
+            .csrf().disable();
 
-
-import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
-import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
-
-private OidcUser checkAllowedUser(OidcUserRequest userRequest) {
-    OidcUserService delegate = new OidcUserService();
-    OidcUser oidcUser = delegate.loadUser(userRequest);
-
-    String username = oidcUser.getEmail(); // try getPreferredUsername() if this is null
-
-    Set<String> allowed = Set.of("user1@yourdomain.com", "user2@yourdomain.com");
-    if (!allowed.contains(username)) {
-        throw new RuntimeException("Access denied: " + username);
+        // Disable form login
+        http.formLogin().disable();
     }
 
-    return oidcUser;
-}
+    private OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserService() {
+        return request -> {
+            DefaultOAuth2UserService delegate = new DefaultOAuth2UserService();
+            OAuth2User user = delegate.loadUser(request);
 
+            String username = user.getAttribute("preferred_username"); // or "email"
+            if (!ALLOWED_USERS.contains(username)) {
+                throw new AccessDeniedException("User not authorized");
+            }
+
+            return new DefaultOAuth2User(
+                user.getAuthorities(),
+                user.getAttributes(),
+                "preferred_username" // or "email"
+            );
+        };
+    }
+}
