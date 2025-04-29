@@ -112,3 +112,33 @@ public class AdminSecurityConfig extends WebSecurityConfigurerAdapter {
                 );
     }
 }
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
+public class CustomOAuth2FailureHandler implements AuthenticationFailureHandler {
+
+    @Override
+    public void onAuthenticationFailure(HttpServletRequest request, 
+                                      HttpServletResponse response,
+                                      AuthenticationException exception) throws IOException {
+        
+        response.setStatus(HttpStatus.FORBIDDEN.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        
+        String errorMessage = "Authentication failed";
+        if (exception.getCause() instanceof UserNotAuthorizedException) {
+            errorMessage = exception.getCause().getMessage();
+        }
+        
+        response.getWriter().write(
+            String.format("{\"error\": \"%s\"}", errorMessage)
+        );
+    }
+}
