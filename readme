@@ -1,144 +1,56 @@
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+1. Create a utility class to configure the proxy globally:
+java
+Copy code
+import java.net.Authenticator;
+import java.net.PasswordAuthentication;
 
-import java.util.Arrays;
-import java.util.List;
+public class ProxyAuthUtil {
 
-@Configuration
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
-    
-    // Static list of allowed usernames
-    private static final List<String> ALLOWED_USERS = Arrays.asList(
-        "user1@domain.com",
-        "user2@domain.com",
-        "user3@domain.com"
-    );
+    public static void setupProxy(String host, int port, String username, String password) {
+        // Set system properties for proxy
+        System.setProperty("http.proxyHost", host);
+        System.setProperty("http.proxyPort", String.valueOf(port));
+        System.setProperty("https.proxyHost", host);
+        System.setProperty("https.proxyPort", String.valueOf(port));
 
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http
-            .authorizeRequests()
-                .antMatchers("/login").permitAll()
-                .anyRequest().authenticated()
-            .and()
-            .oauth2Login()
-                .loginPage("/login")
-                .defaultSuccessUrl("/", true)
-                .userInfoEndpoint()
-                    .oidcUserService(this.oidcUserService());
-        
-        // Disable form login
-        http.formLogin().disable();
-    }
-
-    private OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
-        return userRequest -> {
-            OidcUser user = new OidcUserService().loadUser(userRequest);
-            
-            // Extract username (email) from claims
-            String username = user.getAttribute("email") != null 
-                ? user.getAttribute("email") 
-                : user.getAttribute("preferred_username");
-            
-            // Validate against allowed users
-            if (!ALLOWED_USERS.contains(username)) {
-                throw new RuntimeException("User not authorized");
+        // Set default Authenticator
+        Authenticator.setDefault(new Authenticator() {
+            @Override
+            protected PasswordAuthentication getPasswordAuthentication() {
+                if (getRequestorType() == RequestorType.PROXY) {
+                    return new PasswordAuthentication(username, password.toCharArray());
+                }
+                return null;
             }
-            
-            return user;
-        };
+        });
     }
 }
-
-
-
-import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-
-@Controller
-public class LoginController {
-
-    @GetMapping("/login")
-    public String login() {
-        return "redirect:/oauth2/authorization/azure";
-    }
-}
-
-
-import de.codecentric.boot.admin.server.config.AdminServerProperties;
+2. Call this utility from a Spring @Configuration class:
+java
+Copy code
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+
+import javax.annotation.PostConstruct;
 
 @Configuration
-public class AdminSecurityConfig extends WebSecurityConfigurerAdapter {
-    private final String adminContextPath;
+public class ProxyConfig {
 
-    public AdminSecurityConfig(AdminServerProperties adminServerProperties) {
-        this.adminContextPath = adminServerProperties.getContextPath();
-    }
+    @PostConstruct
+    public void init() {
+        String proxyHost = "your-proxy-host";
+        int proxyPort = 8080;
+        String proxyUser = "your-username";
+        String proxyPassword = "your-password";
 
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        SavedRequestAwareAuthenticationSuccessHandler successHandler = 
-            new SavedRequestAwareAuthenticationSuccessHandler();
-        successHandler.setTargetUrlParameter("redirectTo");
-        successHandler.setDefaultTargetUrl(adminContextPath + "/");
-
-        http
-            .authorizeRequests()
-                .antMatchers(adminContextPath + "/assets/**").permitAll()
-                .antMatchers(adminContextPath + "/login").permitAll()
-                .anyRequest().authenticated()
-            .and()
-            .oauth2Login()
-                .loginPage(adminContextPath + "/login")
-                .successHandler(successHandler)
-            .and()
-            .logout()
-                .logoutUrl(adminContextPath + "/logout")
-            .and()
-            .csrf()
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                .ignoringAntMatchers(
-                    adminContextPath + "/instances",
-                    adminContextPath + "/actuator/**"
-                );
+        ProxyAuthUtil.setupProxy(proxyHost, proxyPort, proxyUser, proxyPassword);
     }
 }
+This ensures that before any HTTP requests are made—even by third-party libraries—the proxy credentials and host/port are already configured.
 
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+Would you like to externalize these proxy values using application.properties?
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 
-public class CustomOAuth2FailureHandler implements AuthenticationFailureHandler {
 
-    @Override
-    public void onAuthenticationFailure(HttpServletRequest request, 
-                                      HttpServletResponse response,
-                                      AuthenticationException exception) throws IOException {
-        
-        response.setStatus(HttpStatus.FORBIDDEN.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        
-        String errorMessage = "Authentication failed";
-        if (exception.getCause() instanceof UserNotAuthorizedException) {
-            errorMessage = exception.getCause().getMessage();
-        }
-        
-        response.getWriter().write(
-            String.format("{\"error\": \"%s\"}", errorMessage)
-        );
-    }
-}
+
+
+
