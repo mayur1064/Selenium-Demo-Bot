@@ -1,12 +1,24 @@
 @Bean
 public WebServerFactoryCustomizer<TomcatServletWebServerFactory> containerCustomizer() {
     return factory -> {
-        Connector httpConnector = new Connector(TomcatServletWebServerFactory.DEFAULT_PROTOCOL);
-        httpConnector.setScheme("http");
-        httpConnector.setPort(8080);
-        httpConnector.setSecure(false);
-        httpConnector.setRedirectPort(8443); // Normally for redirecting to HTTPS
-
-        factory.addAdditionalTomcatConnectors(httpConnector);
+        Connector connector = new Connector(TomcatServletWebServerFactory.DEFAULT_PROTOCOL);
+        connector.setPort(8081);
+        factory.addAdditionalTomcatConnectors(connector);
     };
 }
+
+@Configuration
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+            .requestMatcher(request -> request.getLocalPort() == 8081)
+            .authorizeRequests()
+            .antMatchers("/instances").permitAll()
+            .anyRequest().denyAll()
+            .and().csrf().disable();
+    }
+}
+
+
