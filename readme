@@ -1,56 +1,12 @@
-1. Create a utility class to configure the proxy globally:
-java
-Copy code
-import java.net.Authenticator;
-import java.net.PasswordAuthentication;
+@Bean
+public WebServerFactoryCustomizer<TomcatServletWebServerFactory> containerCustomizer() {
+    return factory -> {
+        Connector httpConnector = new Connector(TomcatServletWebServerFactory.DEFAULT_PROTOCOL);
+        httpConnector.setScheme("http");
+        httpConnector.setPort(8080);
+        httpConnector.setSecure(false);
+        httpConnector.setRedirectPort(8443); // Normally for redirecting to HTTPS
 
-public class ProxyAuthUtil {
-
-    public static void setupProxy(String host, int port, String username, String password) {
-        // Set system properties for proxy
-        System.setProperty("http.proxyHost", host);
-        System.setProperty("http.proxyPort", String.valueOf(port));
-        System.setProperty("https.proxyHost", host);
-        System.setProperty("https.proxyPort", String.valueOf(port));
-
-        // Set default Authenticator
-        Authenticator.setDefault(new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                if (getRequestorType() == RequestorType.PROXY) {
-                    return new PasswordAuthentication(username, password.toCharArray());
-                }
-                return null;
-            }
-        });
-    }
+        factory.addAdditionalTomcatConnectors(httpConnector);
+    };
 }
-2. Call this utility from a Spring @Configuration class:
-java
-Copy code
-import org.springframework.context.annotation.Configuration;
-
-import javax.annotation.PostConstruct;
-
-@Configuration
-public class ProxyConfig {
-
-    @PostConstruct
-    public void init() {
-        String proxyHost = "your-proxy-host";
-        int proxyPort = 8080;
-        String proxyUser = "your-username";
-        String proxyPassword = "your-password";
-
-        ProxyAuthUtil.setupProxy(proxyHost, proxyPort, proxyUser, proxyPassword);
-    }
-}
-This ensures that before any HTTP requests are made—even by third-party libraries—the proxy credentials and host/port are already configured.
-
-Would you like to externalize these proxy values using application.properties?
-
-
-
-
-
-
