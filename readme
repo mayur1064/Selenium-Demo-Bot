@@ -1,24 +1,41 @@
-@Bean
-public WebServerFactoryCustomizer<TomcatServletWebServerFactory> containerCustomizer() {
-    return factory -> {
-        Connector connector = new Connector(TomcatServletWebServerFactory.DEFAULT_PROTOCOL);
-        connector.setPort(8081);
-        factory.addAdditionalTomcatConnectors(connector);
-    };
-}
+<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-dependencies</artifactId>
+      <version>YOUR_SPRING_BOOT_VERSION</version>
+      <type>pom</type>
+      <scope>import</scope>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
 
-@Configuration
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
+<dependencies>
+  <!-- Exclude embedded tomcat -->
+  <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+    <exclusions>
+      <exclusion>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-core</artifactId>
+      </exclusion>
+      <exclusion>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-websocket</artifactId>
+      </exclusion>
+    </exclusions>
+  </dependency>
 
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http
-            .requestMatcher(request -> request.getLocalPort() == 8081)
-            .authorizeRequests()
-            .antMatchers("/instances").permitAll()
-            .anyRequest().denyAll()
-            .and().csrf().disable();
-    }
-}
-
-
+  <!-- Add desired Tomcat version -->
+  <dependency>
+    <groupId>org.apache.tomcat.embed</groupId>
+    <artifactId>tomcat-embed-core</artifactId>
+    <version>YOUR_DESIRED_VERSION</version>
+  </dependency>
+  <dependency>
+    <groupId>org.apache.tomcat.embed</groupId>
+    <artifactId>tomcat-embed-websocket</artifactId>
+    <version>YOUR_DESIRED_VERSION</version>
+  </dependency>
+</dependencies>
