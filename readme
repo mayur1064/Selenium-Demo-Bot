@@ -1,41 +1,29 @@
-<dependencyManagement>
-  <dependencies>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-dependencies</artifactId>
-      <version>YOUR_SPRING_BOOT_VERSION</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
-</dependencyManagement>
+import org.springframework.context.annotation.Configuration;
 
-<dependencies>
-  <!-- Exclude embedded tomcat -->
-  <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-web</artifactId>
-    <exclusions>
-      <exclusion>
-        <groupId>org.apache.tomcat.embed</groupId>
-        <artifactId>tomcat-embed-core</artifactId>
-      </exclusion>
-      <exclusion>
-        <groupId>org.apache.tomcat.embed</groupId>
-        <artifactId>tomcat-embed-websocket</artifactId>
-      </exclusion>
-    </exclusions>
-  </dependency>
+import javax.annotation.PostConstruct;
+import java.net.Authenticator;
+import java.net.PasswordAuthentication;
 
-  <!-- Add desired Tomcat version -->
-  <dependency>
-    <groupId>org.apache.tomcat.embed</groupId>
-    <artifactId>tomcat-embed-core</artifactId>
-    <version>YOUR_DESIRED_VERSION</version>
-  </dependency>
-  <dependency>
-    <groupId>org.apache.tomcat.embed</groupId>
-    <artifactId>tomcat-embed-websocket</artifactId>
-    <version>YOUR_DESIRED_VERSION</version>
-  </dependency>
-</dependencies>
+@Configuration
+public class ProxyConfiguration {
+
+    @PostConstruct
+    public void configureProxy() {
+        // Set proxy host and port
+        System.setProperty("http.proxyHost", "your.proxy.host");
+        System.setProperty("http.proxyPort", "8080");
+        System.setProperty("https.proxyHost", "your.proxy.host");
+        System.setProperty("https.proxyPort", "8080");
+
+        // Set proxy authenticator
+        Authenticator.setDefault(new Authenticator() {
+            @Override
+            protected PasswordAuthentication getPasswordAuthentication() {
+                if (getRequestorType() == RequestorType.PROXY) {
+                    return new PasswordAuthentication("proxyUser", "proxyPassword".toCharArray());
+                }
+                return null;
+            }
+        });
+    }
+}
