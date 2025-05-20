@@ -1,29 +1,46 @@
-import org.springframework.context.annotation.Configuration;
-
-import javax.annotation.PostConstruct;
-import java.net.Authenticator;
-import java.net.PasswordAuthentication;
-
 @Configuration
-public class ProxyConfiguration {
+public class SecurityConfig {
 
-    @PostConstruct
-    public void configureProxy() {
-        // Set proxy host and port
-        System.setProperty("http.proxyHost", "your.proxy.host");
-        System.setProperty("http.proxyPort", "8080");
-        System.setProperty("https.proxyHost", "your.proxy.host");
-        System.setProperty("https.proxyPort", "8080");
+    // UI: OAuth2 login
+    @Bean
+    @Order(1)
+    public SecurityFilterChain uiFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher("/**")
+            .authorizeHttpRequests(authz -> authz
+                .requestMatchers("/assets/**", "/login", "/oauth2/**").permitAll()
+                .anyRequest().authenticated()
+            )
+            .oauth2Login()
+            .and()
+            .csrf().ignoringRequestMatchers("/instances/**", "/actuator/**");
 
-        // Set proxy authenticator
-        Authenticator.setDefault(new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                if (getRequestorType() == RequestorType.PROXY) {
-                    return new PasswordAuthentication("proxyUser", "proxyPassword".toCharArray());
-                }
-                return null;
-            }
-        });
+        return http.build();
+    }
+
+    // Client: Basic Auth for registration
+    @Bean
+    @Order(2)
+    public SecurityFilterChain clientFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher("/instances/**", "/actuator/**")
+            .authorizeHttpRequests(authz -> authz
+                .anyRequest().authenticated()
+            )
+            .httpBasic()
+            .and()
+            .csrf().disable();
+
+        return http.build();
+    }
+
+    @Bean
+    public UserDetailsService userDetailsService() {
+        return new InMemoryUserDetailsManager(
+            User.withUsername("client")
+                .password("{noop}clientpass")
+                .roles("CLIENT")
+                .build()
+        );
     }
 }
