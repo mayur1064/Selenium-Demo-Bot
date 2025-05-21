@@ -1,46 +1,63 @@
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+
+public class HeaderCheckFilter extends OncePerRequestFilter {
+    
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+                                    throws ServletException, IOException {
+        
+        String myHeader = request.getHeader("X-My-Header");
+
+        if (myHeader == null || !myHeader.equals("expectedValue")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or invalid X-My-Header");
+            return;
+        }
+
+        filterChain.doFilter(request, response); // continue the chain
+    }
+}
+
+
+@Override
+protected void doFilterInternal(HttpServletRequest request,
+                                HttpServletResponse response,
+                                FilterChain filterChain)
+                                throws ServletException, IOException {
+    
+    String path = request.getRequestURI();
+
+    if (path.equals("/instances")) {
+        String myHeader = request.getHeader("X-My-Header");
+        if (myHeader == null || !myHeader.equals("expectedValue")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or invalid X-My-Header");
+            return;
+        }
+    }
+
+    filterChain.doFilter(request, response); // continue the chain
+}
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+
 @Configuration
-public class SecurityConfig {
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
-    // UI: OAuth2 login
-    @Bean
-    @Order(1)
-    public SecurityFilterChain uiFilterChain(HttpSecurity http) throws Exception {
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
         http
-            .securityMatcher("/**")
-            .authorizeHttpRequests(authz -> authz
-                .requestMatchers("/assets/**", "/login", "/oauth2/**").permitAll()
-                .anyRequest().authenticated()
-            )
-            .oauth2Login()
-            .and()
-            .csrf().ignoringRequestMatchers("/instances/**", "/actuator/**");
-
-        return http.build();
-    }
-
-    // Client: Basic Auth for registration
-    @Bean
-    @Order(2)
-    public SecurityFilterChain clientFilterChain(HttpSecurity http) throws Exception {
-        http
-            .securityMatcher("/instances/**", "/actuator/**")
-            .authorizeHttpRequests(authz -> authz
-                .anyRequest().authenticated()
-            )
-            .httpBasic()
-            .and()
-            .csrf().disable();
-
-        return http.build();
-    }
-
-    @Bean
-    public UserDetailsService userDetailsService() {
-        return new InMemoryUserDetailsManager(
-            User.withUsername("client")
-                .password("{noop}clientpass")
-                .roles("CLIENT")
-                .build()
-        );
+            .addFilterBefore(new HeaderCheckFilter(), org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
+            .authorizeRequests()
+                .anyRequest().authenticated();
     }
 }
