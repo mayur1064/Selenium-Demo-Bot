@@ -2,62 +2,47 @@ import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
+public class BasicAuthValidationFilter extends OncePerRequestFilter {
 
-public class HeaderCheckFilter extends OncePerRequestFilter {
-    
+    private static final String EXPECTED_USERNAME = "yourUsername";
+    private static final String EXPECTED_PASSWORD = "yourPassword";
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain)
                                     throws ServletException, IOException {
-        
-        String myHeader = request.getHeader("X-My-Header");
+        String path = request.getRequestURI();
 
-        if (myHeader == null || !myHeader.equals("expectedValue")) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or invalid X-My-Header");
-            return;
+        if (path.equals("/instances")) {
+            String authHeader = request.getHeader("Authorization");
+
+            if (authHeader == null || !authHeader.startsWith("Basic ")) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing or invalid Authorization header");
+                return;
+            }
+
+            // Decode and validate credentials
+            String base64Credentials = authHeader.substring("Basic ".length());
+            byte[] decodedBytes = Base64.getDecoder().decode(base64Credentials);
+            String credentials = new String(decodedBytes, StandardCharsets.UTF_8);
+
+            // credentials = username:password
+            String[] values = credentials.split(":", 2);
+            if (values.length != 2 ||
+                !EXPECTED_USERNAME.equals(values[0]) ||
+                !EXPECTED_PASSWORD.equals(values[1])) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid username or password");
+                return;
+            }
         }
 
         filterChain.doFilter(request, response); // continue the chain
-    }
-}
-
-
-@Override
-protected void doFilterInternal(HttpServletRequest request,
-                                HttpServletResponse response,
-                                FilterChain filterChain)
-                                throws ServletException, IOException {
-    
-    String path = request.getRequestURI();
-
-    if (path.equals("/instances")) {
-        String myHeader = request.getHeader("X-My-Header");
-        if (myHeader == null || !myHeader.equals("expectedValue")) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or invalid X-My-Header");
-            return;
-        }
-    }
-
-    filterChain.doFilter(request, response); // continue the chain
-}
-
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-
-@Configuration
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
-
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http
-            .addFilterBefore(new HeaderCheckFilter(), org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
-            .authorizeRequests()
-                .anyRequest().authenticated();
     }
 }
