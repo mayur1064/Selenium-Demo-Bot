@@ -1,48 +1,46 @@
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 
-import org.springframework.web.filter.OncePerRequestFilter;
+@Service
+public class OAuthService {
 
-public class BasicAuthValidationFilter extends OncePerRequestFilter {
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    private static final String EXPECTED_USERNAME = "yourUsername";
-    private static final String EXPECTED_PASSWORD = "yourPassword";
+    public String getAccessToken(String tenantId, String clientId, String clientSecret, String scope) {
+        String tokenUrl = "https://login.microsoftonline.com/" + tenantId + "/oauth2/v2.0/token";
 
-    @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain)
-                                    throws ServletException, IOException {
-        String path = request.getRequestURI();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-        if (path.equals("/instances")) {
-            String authHeader = request.getHeader("Authorization");
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("client_id", clientId);
+        body.add("client_secret", clientSecret);
+        body.add("grant_type", "client_credentials");
+        body.add("scope", scope); // e.g., "https://graph.microsoft.com/.default"
 
-            if (authHeader == null || !authHeader.startsWith("Basic ")) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing or invalid Authorization header");
-                return;
-            }
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
 
-            // Decode and validate credentials
-            String base64Credentials = authHeader.substring("Basic ".length());
-            byte[] decodedBytes = Base64.getDecoder().decode(base64Credentials);
-            String credentials = new String(decodedBytes, StandardCharsets.UTF_8);
+        ResponseEntity<TokenResponse> response = restTemplate.postForEntity(tokenUrl, request, TokenResponse.class);
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return response.getBody().getAccessToken();
+        } else {
+            throw new RuntimeException("Failed to get access token: " + response.getStatusCode());
+        }
+    }
 
-            // credentials = username:password
-            String[] values = credentials.split(":", 2);
-            if (values.length != 2 ||
-                !EXPECTED_USERNAME.equals(values[0]) ||
-                !EXPECTED_PASSWORD.equals(values[1])) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid username or password");
-                return;
-            }
+    // DTO class to capture the access token from the response
+    static class TokenResponse {
+        private String access_token;
+
+        public String getAccessToken() {
+            return access_token;
         }
 
-        filterChain.doFilter(request, response); // continue the chain
+        public void setAccessToken(String access_token) {
+            this.access_token = access_token;
+        }
     }
 }
