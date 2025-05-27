@@ -1,46 +1,38 @@
-import org.springframework.http.*;
-import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@Service
-public class OAuthService {
+public class TokenResponse {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    @JsonProperty("access_token")
+    private String accessToken;
 
-    public String getAccessToken(String tenantId, String clientId, String clientSecret, String scope) {
-        String tokenUrl = "https://login.microsoftonline.com/" + tenantId + "/oauth2/v2.0/token";
+    @JsonProperty("token_type")
+    private String tokenType;
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+    @JsonProperty("expires_in")
+    private int expiresIn;
 
-        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("client_id", clientId);
-        body.add("client_secret", clientSecret);
-        body.add("grant_type", "client_credentials");
-        body.add("scope", scope); // e.g., "https://graph.microsoft.com/.default"
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
-
-        ResponseEntity<TokenResponse> response = restTemplate.postForEntity(tokenUrl, request, TokenResponse.class);
-        if (response.getStatusCode().is2xxSuccessful()) {
-            return response.getBody().getAccessToken();
-        } else {
-            throw new RuntimeException("Failed to get access token: " + response.getStatusCode());
-        }
+    // Getters and setters
+    public String getAccessToken() {
+        return accessToken;
     }
 
-    // DTO class to capture the access token from the response
-    static class TokenResponse {
-        private String access_token;
+    public void setAccessToken(String accessToken) {
+        this.accessToken = accessToken;
+    }
 
-        public String getAccessToken() {
-            return access_token;
-        }
+    public String getTokenType() {
+        return tokenType;
+    }
 
-        public void setAccessToken(String access_token) {
-            this.access_token = access_token;
-        }
+    public void setTokenType(String tokenType) {
+        this.tokenType = tokenType;
+    }
+
+    public int getExpiresIn() {
+        return expiresIn;
+    }
+
+    public void setExpiresIn(int expiresIn) {
+        this.expiresIn = expiresIn;
     }
 }
