@@ -60,3 +60,14 @@ public class CsrfLoginClient {
         System.out.println("API Response: " + apiResponse.getBody());
     }
 }
+public static String getSubstringBetween(String text, String start, String end) {
+    int startIndex = text.indexOf(start);
+    if (startIndex == -1) return null;
+
+    startIndex += start.length(); // Move index to after the start string
+    int endIndex = text.indexOf(end, startIndex);
+    if (endIndex == -1) return null;
+
+    return text.substring(startIndex, endIndex);
+}
+
