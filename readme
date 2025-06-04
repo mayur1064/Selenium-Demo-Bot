@@ -1,73 +1,51 @@
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.springframework.http.*;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
-import org.springframework.web.client.RestTemplate;
-import org.apache.http.impl.client.BasicCookieStore;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.client.CookieStore;
-import org.apache.http.impl.client.CloseableHttpClient;
+#!/bin/bash
 
-import java.util.Collections;
+# Exit on error
+set -e
 
-public class CsrfLoginClient {
+# Directory to store PID files
+PID_DIR="./pids"
+mkdir -p "$PID_DIR"
 
-    public static void main(String[] args) {
-        String loginUrl = "http://localhost:8080/login";
-        String protectedApiUrl = "http://localhost:8080/protected/api";
+# Function to kill a process by service name
+kill_service() {
+    local name=$1
+    pid=$(pgrep -f "$name" || true)
 
-        CookieStore cookieStore = new BasicCookieStore();
-        CloseableHttpClient httpClient = HttpClients.custom()
-                .setDefaultCookieStore(cookieStore)
-                .build();
-
-        RestTemplate restTemplate = new RestTemplate(new HttpComponentsClientHttpRequestFactory(httpClient));
-
-        // Step 1: GET /login to get CSRF token
-        ResponseEntity<String> loginPageResponse = restTemplate.getForEntity(loginUrl, String.class);
-        String html = loginPageResponse.getBody();
-
-        Document doc = Jsoup.parse(html);
-        Element csrfInput = doc.selectFirst("input[name=_csrf]");
-        String csrfToken = csrfInput != null ? csrfInput.attr("value") : null;
-
-        if (csrfToken == null) {
-            throw new IllegalStateException("CSRF token not found on login page");
-        }
-
-        System.out.println("Fetched CSRF Token: " + csrfToken);
-
-        // Step 2: POST /login with credentials and CSRF token
-        HttpHeaders loginHeaders = new HttpHeaders();
-        loginHeaders.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-        String loginBody = "username=user&password=pass&_csrf=" + csrfToken;
-        HttpEntity<String> loginRequest = new HttpEntity<>(loginBody, loginHeaders);
-
-        ResponseEntity<String> loginResponse = restTemplate.postForEntity(loginUrl, loginRequest, String.class);
-        System.out.println("Login Response Status: " + loginResponse.getStatusCode());
-
-        // Step 3: Call protected API using same session (cookie) and CSRF token
-        HttpHeaders apiHeaders = new HttpHeaders();
-        apiHeaders.setContentType(MediaType.APPLICATION_JSON);
-        apiHeaders.set("X-CSRF-TOKEN", csrfToken);
-
-        String requestBody = "{\"key\": \"value\"}";
-        HttpEntity<String> apiRequest = new HttpEntity<>(requestBody, apiHeaders);
-
-        ResponseEntity<String> apiResponse = restTemplate.postForEntity(protectedApiUrl, apiRequest, String.class);
-        System.out.println("API Response: " + apiResponse.getBody());
-    }
-}
-public static String getSubstringBetween(String text, String start, String end) {
-    int startIndex = text.indexOf(start);
-    if (startIndex == -1) return null;
-
-    startIndex += start.length(); // Move index to after the start string
-    int endIndex = text.indexOf(end, startIndex);
-    if (endIndex == -1) return null;
-
-    return text.substring(startIndex, endIndex);
+    if [[ -n "$pid" ]]; then
+        echo "Killing $name (PID: $pid)..."
+        kill -9 $pid
+    else
+        echo "No running process found for $name"
+    fi
 }
 
+# Function to start a service and store its PID
+start_service() {
+    local name=$1
+    local jar_path="/path/to/${name}.jar"  # <-- Update this to match your actual JAR paths
+
+    if [[ ! -f "$jar_path" ]]; then
+        echo "JAR file not found for $name at $jar_path"
+        return
+    fi
+
+    echo "Starting $name..."
+    nohup java -jar "$jar_path" > "${name}.log" 2>&1 &
+
+    new_pid=$!
+    echo $new_pid > "$PID_DIR/${name}.pid"
+    echo "$name started with PID $new_pid"
+}
+
+# Main logic
+if [[ $# -eq 0 ]]; then
+    echo "Usage: $0 <service1> <service2> ..."
+    exit 1
+fi
+
+for service in "$@"; do
+    kill_service "$service"
+    sleep 2
+    start_service "$service"
+done
