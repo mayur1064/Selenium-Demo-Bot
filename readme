@@ -1,28 +1,39 @@
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
 
-@Configuration
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
+import javax.net.ssl.*;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http
-            .authorizeRequests()
-                .anyRequest().authenticated()
-            .and()
-            .httpBasic()  // Enables Basic Auth
-            .and()
-            .csrf().disable();  // Disable CSRF for simplicity (not for production APIs)
-    }
+public class InsecureRestTemplateFactory {
 
-    // Optional: In-memory authentication (useful if not using application.properties)
-    @Override
-    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        auth.inMemoryAuthentication()
-            .withUser("admin")
-            .password("{noop}password")  // {noop} means no password encoding
-            .roles("USER");
+    public static RestTemplate createRestTemplate() {
+        try {
+            // Trust manager that does not validate certificate chains
+            TrustManager[] trustAllCerts = new TrustManager[]{
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+                    public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                    public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+                }
+            };
+
+            // SSL context
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, trustAllCerts, new SecureRandom());
+
+            // Hostname verifier that allows all hosts
+            HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
+
+            // Set the SSL context to HttpsURLConnection
+            HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
+
+            // Create and return RestTemplate
+            SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+            return new RestTemplate(requestFactory);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create insecure RestTemplate", e);
+        }
     }
 }
