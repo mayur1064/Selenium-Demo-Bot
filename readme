@@ -1,39 +1,33 @@
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
-
 import javax.net.ssl.*;
-import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 
 public class InsecureRestTemplateFactory {
 
-    public static RestTemplate createRestTemplate() {
-        try {
-            // Trust manager that does not validate certificate chains
-            TrustManager[] trustAllCerts = new TrustManager[]{
-                new X509TrustManager() {
-                    public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-                    public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-                    public void checkServerTrusted(X509Certificate[] certs, String authType) {}
-                }
-            };
+    public static RestTemplate create() throws Exception {
+        TrustManager[] trustAllCerts = new TrustManager[]{
+            new X509TrustManager() {
+                public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+                public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+                public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+            }
+        };
 
-            // SSL context
-            SSLContext sslContext = SSLContext.getInstance("TLS");
-            sslContext.init(null, trustAllCerts, new SecureRandom());
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
 
-            // Hostname verifier that allows all hosts
-            HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
+        SSLConnectionSocketFactory csf = new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
+        CloseableHttpClient httpClient = HttpClients.custom().setSSLSocketFactory(csf).build();
 
-            // Set the SSL context to HttpsURLConnection
-            HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
+        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(httpClient);
+        factory.setConnectTimeout(2000); // 2 seconds
+        factory.setReadTimeout(2000);    // 2 seconds
 
-            // Create and return RestTemplate
-            SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-            return new RestTemplate(requestFactory);
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to create insecure RestTemplate", e);
-        }
+        return new RestTemplate(factory);
     }
 }
