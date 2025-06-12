@@ -1,33 +1,54 @@
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
-import org.springframework.web.client.RestTemplate;
-import javax.net.ssl.*;
-import java.security.cert.X509Certificate;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.stereotype.Service;
 
-public class InsecureRestTemplateFactory {
+@Service
+public class EmailService {
 
-    public static RestTemplate create() throws Exception {
-        TrustManager[] trustAllCerts = new TrustManager[]{
-            new X509TrustManager() {
-                public void checkClientTrusted(X509Certificate[] chain, String authType) {}
-                public void checkServerTrusted(X509Certificate[] chain, String authType) {}
-                public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-            }
-        };
+    @Autowired
+    private JavaMailSender mailSender;
 
-        SSLContext sslContext = SSLContext.getInstance("TLS");
-        sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+    public void sendHtmlEmail(String to, String subject) throws MessagingException {
+        MimeMessage message = mailSender.createMimeMessage();
 
-        SSLConnectionSocketFactory csf = new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
-        CloseableHttpClient httpClient = HttpClients.custom().setSSLSocketFactory(csf).build();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true);
+        helper.setFrom("your.email@gmail.com");
+        helper.setTo(to);
+        helper.setSubject(subject);
 
-        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(httpClient);
-        factory.setConnectTimeout(2000); // 2 seconds
-        factory.setReadTimeout(2000);    // 2 seconds
+        String htmlContent = """
+                <html>
+                <body style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2 style="color: #2E86C1;">Welcome to Our Service!</h2>
+                    <p>Hi there,</p>
+                    <p>Thank you for joining our platform. Here are a few quick links to get you started:</p>
+                    <ul>
+                        <li><a href="https://example.com/login">Login to your account</a></li>
+                        <li><a href="https://example.com/help">Help & Support</a></li>
+                    </ul>
+                    <p style="color: #888;">Best regards,<br>The Team</p>
+                </body>
+                </html>
+                """;
 
-        return new RestTemplate(factory);
+        helper.setText(htmlContent, true); // true = isHtml
+        mailSender.send(message);
     }
 }
+
+
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=your.email@gmail.com
+spring.mail.password=your_app_password
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-mail</artifactId>
+</dependency>
