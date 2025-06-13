@@ -1,69 +1,47 @@
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.stereotype.Service;
-
-@Service
-public class EmailService {
-
-    @Autowired
-    private JavaMailSender mailSender;
-
-    public void sendHtmlEmail(String to, String subject) throws MessagingException {
-        MimeMessage message = mailSender.createMimeMessage();
-
-        MimeMessageHelper helper = new MimeMessageHelper(message, true);
-        helper.setFrom("your.email@gmail.com");
-        helper.setTo(to);
-        helper.setSubject(subject);
-
-        String htmlContent = """
-                <html>
-                <body style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2 style="color: #2E86C1;">Welcome to Our Service!</h2>
-                    <p>Hi there,</p>
-                    <p>Thank you for joining our platform. Here are a few quick links to get you started:</p>
-                    <ul>
-                        <li><a href="https://example.com/login">Login to your account</a></li>
-                        <li><a href="https://example.com/help">Help & Support</a></li>
-                    </ul>
-                    <p style="color: #888;">Best regards,<br>The Team</p>
-                </body>
-                </html>
-                """;
-
-        helper.setText(htmlContent, true); // true = isHtml
-        mailSender.send(message);
-    }
-}
-
-
-spring.mail.host=smtp.gmail.com
-spring.mail.port=587
-spring.mail.username=your.email@gmail.com
-spring.mail.password=your_app_password
-spring.mail.properties.mail.smtp.auth=true
-spring.mail.properties.mail.smtp.starttls.enable=true
-
-
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-mail</artifactId>
-</dependency>
-
-
-String htmlContent = 
+String emailHtml = "<!DOCTYPE html>\n" +
     "<html>\n" +
-    "  <body style=\"font-family: Arial, sans-serif; padding: 20px;\">\n" +
-    "    <h2 style=\"color: #2E86C1;\">Welcome to Our Service!</h2>\n" +
-    "    <p>Hi there,</p>\n" +
-    "    <p>Thank you for joining our platform. Here are a few quick links to get you started:</p>\n" +
-    "    <ul>\n" +
-    "      <li><a href=\"https://example.com/login\">Login to your account</a></li>\n" +
-    "      <li><a href=\"https://example.com/help\">Help & Support</a></li>\n" +
-    "    </ul>\n" +
-    "    <p style=\"color: #888;\">Best regards,<br>The Team</p>\n" +
-    "  </body>\n" +
+    "<head>\n" +
+    "    <style>\n" +
+    "        table {\n" +
+    "            font-family: Arial, sans-serif;\n" +
+    "            border-collapse: collapse;\n" +
+    "            width: 100%;\n" +
+    "        }\n" +
+    "        td, th {\n" +
+    "            border: 1px solid #dddddd;\n" +
+    "            text-align: left;\n" +
+    "            padding: 8px;\n" +
+    "        }\n" +
+    "        tr:nth-child(even) {\n" +
+    "            background-color: #f2f2f2;\n" +
+    "        }\n" +
+    "    </style>\n" +
+    "</head>\n" +
+    "<body>\n" +
+    "    <h2>Sample Email with Table</h2>\n" +
+    "    <p>Here is the information you requested:</p>\n" +
+    "    <table>\n" +
+    "        <tr>\n" +
+    "            <th>Name</th>\n" +
+    "            <th>Email</th>\n" +
+    "            <th>Status</th>\n" +
+    "        </tr>\n" +
+    "        <tr>\n" +
+    "            <td>John Doe</td>\n" +
+    "            <td>john@example.com</td>\n" +
+    "            <td>Active</td>\n" +
+    "        </tr>\n" +
+    "        <tr>\n" +
+    "            <td>Jane Smith</td>\n" +
+    "            <td>jane@example.com</td>\n" +
+    "            <td>Pending</td>\n" +
+    "        </tr>\n" +
+    "        <tr>\n" +
+    "            <td>Bob Johnson</td>\n" +
+    "            <td>bob@example.com</td>\n" +
+    "            <td>Active</td>\n" +
+    "        </tr>\n" +
+    "    </table>\n" +
+    "    <p>Thank you!</p>\n" +
+    "</body>\n" +
     "</html>";
