@@ -1,47 +1,53 @@
-String emailHtml = "<!DOCTYPE html>\n" +
-    "<html>\n" +
-    "<head>\n" +
-    "    <style>\n" +
-    "        table {\n" +
-    "            font-family: Arial, sans-serif;\n" +
-    "            border-collapse: collapse;\n" +
-    "            width: 100%;\n" +
-    "        }\n" +
-    "        td, th {\n" +
-    "            border: 1px solid #dddddd;\n" +
-    "            text-align: left;\n" +
-    "            padding: 8px;\n" +
-    "        }\n" +
-    "        tr:nth-child(even) {\n" +
-    "            background-color: #f2f2f2;\n" +
-    "        }\n" +
-    "    </style>\n" +
-    "</head>\n" +
-    "<body>\n" +
-    "    <h2>Sample Email with Table</h2>\n" +
-    "    <p>Here is the information you requested:</p>\n" +
-    "    <table>\n" +
-    "        <tr>\n" +
-    "            <th>Name</th>\n" +
-    "            <th>Email</th>\n" +
-    "            <th>Status</th>\n" +
-    "        </tr>\n" +
-    "        <tr>\n" +
-    "            <td>John Doe</td>\n" +
-    "            <td>john@example.com</td>\n" +
-    "            <td>Active</td>\n" +
-    "        </tr>\n" +
-    "        <tr>\n" +
-    "            <td>Jane Smith</td>\n" +
-    "            <td>jane@example.com</td>\n" +
-    "            <td>Pending</td>\n" +
-    "        </tr>\n" +
-    "        <tr>\n" +
-    "            <td>Bob Johnson</td>\n" +
-    "            <td>bob@example.com</td>\n" +
-    "            <td>Active</td>\n" +
-    "        </tr>\n" +
-    "    </table>\n" +
-    "    <p>Thank you!</p>\n" +
-    "</body>\n" +
-    "</html>";
+provider "azurerm" {
+  features {}
+}
+
+# Get current tenant and subscription details
+data "azurerm_client_config" "current" {}
+
+# Create Resource Group
+resource "azurerm_resource_group" "rg" {
+  name     = "my-rg"
+  location = "East US"
+}
+
+# Create User Assigned Managed Identity (UAMI)
+resource "azurerm_user_assigned_identity" "uami" {
+  name                = "my-uami"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+}
+
+# Create Azure Key Vault
+resource "azurerm_key_vault" "kv" {
+  name                        = "myKeyVault12345" # must be globally unique
+  location                    = azurerm_resource_group.rg.location
+  resource_group_name         = azurerm_resource_group.rg.name
+  tenant_id                   = data.azurerm_client_config.current.tenant_id
+  sku_name                    = "standard"
+  purge_protection_enabled    = true
+  soft_delete_retention_days  = 7
+}
+
+# Grant access to the UAMI via Access Policy
+resource "azurerm_key_vault_access_policy" "uami_access" {
+  key_vault_id = azurerm_key_vault.kv.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = azurerm_user_assigned_identity.uami.principal_id
+
+  secret_permissions = [
+    "get",
+    "list",
+    "set"
+  ]
+
+  key_permissions = [
+    "get",
+    "list"
+  ]
+
+  certificate_permissions = [
+    "get",
+    "list"
+  ]
+}
