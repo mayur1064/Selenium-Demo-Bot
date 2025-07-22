@@ -2,51 +2,37 @@ provider "azurerm" {
   features {}
 }
 
-# Replace with your values
-variable "resource_group_name" {
-  default = "your-resource-group"
+# Data block to get existing UAMI
+data "azurerm_user_assigned_identity" "uami" {
+  name                = "my-uami"
+  resource_group_name = "my-uami-rg"
 }
 
-variable "location" {
-  default = "East US"
+# Data block to get existing Key Vault
+data "azurerm_key_vault" "kv" {
+  name                = "my-keyvault"
+  resource_group_name = "my-kv-rg"
 }
 
-variable "log_analytics_workspace_name" {
-  default = "my-law-workspace"
-}
+# Assign access policy to UAMI
+resource "azurerm_key_vault_access_policy" "uami_access" {
+  key_vault_id = data.azurerm_key_vault.kv.id
+  tenant_id    = data.azurerm_user_assigned_identity.uami.tenant_id
+  object_id    = data.azurerm_user_assigned_identity.uami.principal_id
 
-variable "existing_key_vault_name" {
-  default = "my-existing-kv"
-}
+  secret_permissions = [
+    "get",
+    "list",
+    "set"
+  ]
 
-variable "kv_resource_group" {
-  default = "your-kv-resource-group"
-}
+  key_permissions = [
+    "get",
+    "list",
+    "decrypt",
+    "encrypt"
+  ]
 
-# Create Log Analytics Workspace
-resource "azurerm_log_analytics_workspace" "law" {
-  name                = var.log_analytics_workspace_name
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  sku                 = "PerGB2018"
-  retention_in_days   = 30
-}
-
-# Get the existing Key Vault
-data "azurerm_key_vault" "existing_kv" {
-  name                = var.existing_key_vault_name
-  resource_group_name = var.kv_resource_group
-}
-
-# Retrieve the shared keys of the workspace
-data "azurerm_log_analytics_workspace_shared_keys" "law_keys" {
-  resource_group_name = var.resource_group_name
-  workspace_name      = azurerm_log_analytics_workspace.law.name
-}
-
-# Store the key as a secret in Key Vault
-resource "azurerm_key_vault_secret" "law_primary_key" {
-  name         = "log-analytics-primary-key"
-  value        = data.azurerm_log_analytics_workspace_shared_keys.law_keys.primary_shared_key
-  key_vault_id = data.azurerm_key_vault.existing_kv.id
+  certificate_permissions = []
+  storage_permissions     = []
 }
