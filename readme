@@ -1,45 +1,25 @@
-provider "azurerm" {
-  features {}
-}
+#!/bin/bash
 
-# Replace with your values
-variable "resource_group_name" {
-  default = "my-resource-group"
-}
+# ==== Replace with your values ====
+TENANT_ID="<your-tenant-id>"
+CLIENT_ID="<your-client-id>"
+CLIENT_SECRET="<your-client-secret>"
+SCOPE="https://graph.microsoft.com/.default"  # or your API scope
+# ==================================
 
-variable "location" {
-  default = "East US"
-}
+# Get the token
+ACCESS_TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "client_id=$CLIENT_ID" \
+  -d "scope=$SCOPE" \
+  -d "client_secret=$CLIENT_SECRET" \
+  -d "grant_type=client_credentials" | jq -r .access_token)
 
-variable "key_vault_name" {
-  default = "my-existing-kv"
-}
-
-variable "app_insights_name" {
-  default = "my-appinsights"
-}
-
-variable "key_vault_resource_group" {
-  default = "kv-resource-group"  # Set this to the resource group where Key Vault exists
-}
-
-# Get existing Key Vault
-data "azurerm_key_vault" "kv" {
-  name                = var.key_vault_name
-  resource_group_name = var.key_vault_resource_group
-}
-
-# Create Application Insights
-resource "azurerm_application_insights" "app_insights" {
-  name                = var.app_insights_name
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  application_type    = "web"
-}
-
-# Store the Instrumentation Key in the existing Key Vault
-resource "azurerm_key_vault_secret" "app_insights_key" {
-  name         = "appInsightsInstrumentationKey"
-  value        = azurerm_application_insights.app_insights.instrumentation_key
-  key_vault_id = data.azurerm_key_vault.kv.id
-}
+# Check and display
+if [[ "$ACCESS_TOKEN" != "null" && -n "$ACCESS_TOKEN" ]]; then
+  echo "Access Token:"
+  echo "$ACCESS_TOKEN"
+else
+  echo "Failed to obtain access token"
+  exit 1
+fi
