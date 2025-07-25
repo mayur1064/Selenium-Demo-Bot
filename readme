@@ -1,27 +1,8 @@
-#!/bin/bash
+ACCESS_TOKEN="your_access_token_here"
+API_URL="https://api.example.com/update/resource"
+JSON_PAYLOAD='{"key":"value"}'
 
-# Replace these with your actual values
-TENANT_ID="<your-tenant-id>"
-CLIENT_ID="<your-client-id>"
-CLIENT_SECRET="<your-client-secret>"
-SCOPE="https://graph.microsoft.com/.default"  # or your API's scope
-
-# Call Azure AD token endpoint
-response=$(curl -s -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "client_id=$CLIENT_ID" \
-  -d "scope=$SCOPE" \
-  -d "client_secret=$CLIENT_SECRET" \
-  -d "grant_type=client_credentials")
-
-# Extract access_token manually
-ACCESS_TOKEN=$(echo "$response" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
-
-# Print or handle result
-if [[ -n "$ACCESS_TOKEN" ]]; then
-  echo "Access Token:"
-  echo "$ACCESS_TOKEN"
-else
-  echo "Failed to extract access token:"
-  echo "$response"
-fi
+curl -X PUT "$API_URL" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "$JSON_PAYLOAD"
