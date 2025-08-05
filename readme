@@ -1,8 +1,3 @@
-ACCESS_TOKEN="your_access_token_here"
-API_URL="https://api.example.com/update/resource"
-JSON_PAYLOAD='{"key":"value"}'
-
-curl -X PUT "$API_URL" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "$JSON_PAYLOAD"
+az monitor log-analytics workspace get-shared-keys \
+  --resource-group <your-resource-group> \
+  --workspace-name <your-workspace-name>
