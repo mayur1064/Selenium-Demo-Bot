@@ -1,9 +1,1 @@
-for dir in $(find . -type d); do
-    max_file=$(find "$dir" -type f -printf "%s %p\n" 2>/dev/null | sort -nr | head -1)
-    if [ -n "$max_file" ]; then
-        size_bytes=$(echo "$max_file" | awk '{print $1}')
-        size_mb=$(awk -v s="$size_bytes" 'BEGIN {printf "%.2f", s/1024/1024}')
-        file_path=$(echo "$max_file" | cut -d' ' -f2-)
-        echo "$dir : $size_mb MB ($file_path)"
-    fi
-done
+ls -l --block-size=1M | awk 'NR>1 {print $5, $9}' | sort -k1 -nr
