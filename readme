@@ -1,3 +1,11 @@
-az monitor log-analytics workspace get-shared-keys \
-  --resource-group <your-resource-group> \
-  --workspace-name <your-workspace-name>
+find . -type f -printf '%s %h/%f\n' \
+  | awk '{mb=$1/1024/1024; print mb, $2}' \
+  | sort -nr \
+  | awk '{
+      split($2, pathParts, "/");
+      dir = (length(pathParts) > 1 ? pathParts[1] : ".");
+      if (!(dir in seen)) {
+          seen[dir] = 1;
+          print dir ": " $1 " MB (" $2 ")";
+      }
+  }'
