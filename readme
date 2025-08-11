@@ -1,11 +1,10 @@
 find . -type f -printf '%s %h/%f\n' \
   | awk '{mb=$1/1024/1024; print mb, $2}' \
   | sort -nr \
-  | awk '{
-      split($2, pathParts, "/");
-      dir = (length(pathParts) > 1 ? pathParts[1] : ".");
+  | awk -F/ '{
+      dir = substr($0, index($0,$2));
       if (!(dir in seen)) {
           seen[dir] = 1;
-          print dir ": " $1 " MB (" $2 ")";
+          print dir ": " $1 " MB";
       }
   }'
