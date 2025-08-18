@@ -1,51 +1,10 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: my-app
-  namespace: default
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: my-app
-  template:
-    metadata:
-      labels:
-        app: my-app
-    spec:
-      containers:
-        - name: app
-          image: my-app:latest
-          envFrom:
-            - secretRef:
-                name: app-secrets
+Subject: Resignation Notice
 
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: my-app
-  namespace: default
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: my-app
-  template:
-    metadata:
-      labels:
-        app: my-app
-    spec:
-      containers:
-        - name: app
-          image: my-app:latest
-          env:
-            - name: DB_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: db-secret
-                  key: username
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: db-secret
-                  key: password
+Hi Sushant,
+
+I would like to formally resign from my position at UBS. Please consider this email as the start of my notice period.
+
+I appreciate all the opportunities and support during my time here.
+
+Best regards,
+Mayur
