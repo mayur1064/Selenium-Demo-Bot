@@ -1,10 +1,5 @@
-Subject: Resignation Notice
-
-Hi Sushant,
-
-I would like to formally resign from my position at UBS. Please consider this email as the start of my notice period.
-
-I appreciate all the opportunities and support during my time here.
-
-Best regards,
-Mayur
+resource "azurerm_key_vault_secret" "appinsights_connection" {
+  name         = "appinsights-connection-string"
+  value        = azurerm_application_insights.appinsights.connection_string
+  key_vault_id = azurerm_key_vault.kv.id
+}
