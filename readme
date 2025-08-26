@@ -1,5 +1,31 @@
-resource "azurerm_key_vault_secret" "appinsights_connection" {
-  name         = "appinsights-connection-string"
-  value        = azurerm_application_insights.appinsights.connection_string
-  key_vault_id = azurerm_key_vault.kv.id
-}
+# Use OpenJDK base image (you can change version as per your app requirement)
+FROM eclipse-temurin:17-jdk as builder
+
+# Arguments for Nexus and AI agent
+ARG NEXUS_URL=https://nexus.company.com/repository/maven-public/com/microsoft/azure/applicationinsights-agent/3.4.19/applicationinsights-agent-3.4.19.jar
+ARG APP_JAR=myapp.jar
+
+# Create app directory
+WORKDIR /app
+
+# Fetch Application Insights Agent JAR from Nexus
+# (If Nexus requires authentication, use curl with -u user:pass)
+RUN curl -fSL "$NEXUS_URL" -o applicationinsights-agent.jar
+
+# Copy your application JAR into the image
+COPY target/${APP_JAR} /app/${APP_JAR}
+
+# Final lightweight runtime image
+FROM eclipse-temurin:17-jre
+
+WORKDIR /app
+
+# Copy jars from builder stage
+COPY --from=builder /app/applicationinsights-agent.jar /app/applicationinsights-agent.jar
+COPY --from=builder /app/${APP_JAR} /app/${APP_JAR}
+
+# Application Insights connection string must come from env var in AKS
+ENV APPLICATIONINSIGHTS_CONNECTION_STRING=""
+
+# Start the app with AI agent
+ENTRYPOINT ["java", "-javaagent:/app/applicationinsights-agent.jar", "-jar", "/app/myapp.jar"]
