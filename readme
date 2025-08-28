@@ -1,31 +1,22 @@
-# Use OpenJDK base image (you can change version as per your app requirement)
-FROM eclipse-temurin:17-jdk as builder
+# Start with slim JDK image
+FROM openjdk:17-jdk-slim
 
-# Arguments for Nexus and AI agent
-ARG NEXUS_URL=https://nexus.company.com/repository/maven-public/com/microsoft/azure/applicationinsights-agent/3.4.19/applicationinsights-agent-3.4.19.jar
-ARG APP_JAR=myapp.jar
+# Set work directory
+WORKDIR /opt/app
 
-# Create app directory
-WORKDIR /app
+# Install curl to download files
+RUN apt-get update && apt-get install -y curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Fetch Application Insights Agent JAR from Nexus
-# (If Nexus requires authentication, use curl with -u user:pass)
-RUN curl -fSL "$NEXUS_URL" -o applicationinsights-agent.jar
+# Copy your application JAR into image
+COPY target/myapp.jar app.jar
 
-# Copy your application JAR into the image
-COPY target/${APP_JAR} /app/${APP_JAR}
+# Download Application Insights agent JAR from URL
+# Replace <URL_TO_AI_AGENT_JAR> with your Nexus/AI agent URL
+RUN curl -L -o applicationinsights-agent.jar <URL_TO_AI_AGENT_JAR>
 
-# Final lightweight runtime image
-FROM eclipse-temurin:17-jre
+# Expose port (if your app runs a web server, e.g. 8080)
+EXPOSE 8080
 
-WORKDIR /app
-
-# Copy jars from builder stage
-COPY --from=builder /app/applicationinsights-agent.jar /app/applicationinsights-agent.jar
-COPY --from=builder /app/${APP_JAR} /app/${APP_JAR}
-
-# Application Insights connection string must come from env var in AKS
-ENV APPLICATIONINSIGHTS_CONNECTION_STRING=""
-
-# Start the app with AI agent
-ENTRYPOINT ["java", "-javaagent:/app/applicationinsights-agent.jar", "-jar", "/app/myapp.jar"]
+# Run the application with AI agent
+ENTRYPOINT ["java", "-javaagent:/opt/app/applicationinsights-agent.jar", "-jar", "app.jar"]
