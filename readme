@@ -1,22 +1,19 @@
-# Start with slim JDK image
-FROM openjdk:17-jdk-slim
+# Use Alpine-based JDK image
+FROM openjdk:17-jdk-alpine
 
-# Set work directory
 WORKDIR /opt/app
 
-# Install curl to download files
-RUN apt-get update && apt-get install -y curl \
-    && rm -rf /var/lib/apt/lists/*
+# Install curl using apk
+RUN apk add --no-cache curl
 
-# Copy your application JAR into image
+# Copy your application JAR into the image
 COPY target/myapp.jar app.jar
 
-# Download Application Insights agent JAR from URL
-# Replace <URL_TO_AI_AGENT_JAR> with your Nexus/AI agent URL
+# Download Application Insights agent JAR
 RUN curl -L -o applicationinsights-agent.jar <URL_TO_AI_AGENT_JAR>
 
-# Expose port (if your app runs a web server, e.g. 8080)
+# Expose application port
 EXPOSE 8080
 
-# Run the application with AI agent
+# Run the app with Application Insights agent
 ENTRYPOINT ["java", "-javaagent:/opt/app/applicationinsights-agent.jar", "-jar", "app.jar"]
