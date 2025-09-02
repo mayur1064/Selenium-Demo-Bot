@@ -1,1 +1,3 @@
 for j in $(jr -j "ABC_*" -q); do sendevent -E JOB_ON_ICE -J $j; done
+
+for j in $(jr ABC_* -q); do sendevent -E JOB_ON_ICE -J $j; done
