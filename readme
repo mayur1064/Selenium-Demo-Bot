@@ -1,3 +1,1 @@
-for j in $(autorep -J "ABC_*" -q); do sendevent -E JOB_ON_ICE -J $j; done
-
-autorep -J ALL | grep "ON_ICE" | awk '{print $1}'
+for j in $(jr -j "ABC_*" -q); do sendevent -E JOB_ON_ICE -J $j; done
