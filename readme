@@ -1,5 +1,11 @@
-for j in $(jr -j "ABC_*" -q); do sendevent -E JOB_ON_ICE -J $j; done
-
-for j in $(jr ABC_* -q); do sendevent -E JOB_ON_ICE -J $j; done
-
-jr ALL | awk '{print $1}'
+ce 
+		a.  It provides a stable IP address and DNS name so clients can access your application even as Pods come and go
+		b. Multiple pods can run same app and pod may restart again with different IP
+		c.  Service groups these Pods (by label selector) and gives a consistent endpoint to access them
+		d. Service Types - 
+			Type	Description	Use Case
+			ClusterIP	Default type. Exposes service only inside the cluster.	Internal microservice communication
+			NodePort	Exposes service on static port on each node's IP.	Debugging, simple external access
+			LoadBalancer	Integrates with Azure Load Balancer. Exposes service publicly (with external IP).	Exposing apps to the internet
+				AKS will automatically create a Layer 4 Azure Load Balancer in the resource group of Nodes 
+				Associate the load balancer with your AKS nodes
