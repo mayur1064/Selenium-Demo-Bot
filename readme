@@ -1,21 +1,61 @@
-Managed Identities are a feature of Azure Active Directory (AAD) that let your applications securely access Azure resources (like Key Vault, Storage Accounts, Databases, etc.) without needing to manage secrets, keys, or credentials
+AKS Workload Identity
 
-There are two types of Managed Identities:
+In Azure Kubernetes Service (AKS), Workload Identity is the new way for pods to securely access Azure resources (Key Vault, Storage, SQL, etc.) without managing secrets or Service Principals manually.
 
-System-Assigned Managed Identity (SAMI)
+Traditionally, AKS used AAD Pod Identity. But that approach had scalability and reliability issues. Workload Identity replaces it with a more secure and cloud-native method.
 
-Tied to a specific Azure resource (VM, App Service, AKS, etc.).
+It integrates:
 
-Created automatically by Azure.
+Azure AD Workload Identity Federation
 
-Lifecycle is tied to the resource (deleted when the resource is deleted).
+Kubernetes Service Accounts
 
-User-Assigned Managed Identity (UAMI)
+Azure Managed Identities
 
-A standalone Azure resource that you create.
+✅ How it works:
 
-Can be assigned to one or multiple Azure resources.
+A pod in AKS uses a Kubernetes Service Account (KSA).
 
-Lifecycle is independent of any resource (it won’t be deleted if a VM/App Service is deleted).
+That KSA is mapped (via OIDC federation) to an Azure Managed Identity (usually a User Assigned Managed Identity, UAMI).
 
-Useful if you want to reuse the same identity across multiple services or rotate resources without losing identity access.
+When the pod needs a token for Azure (say Key Vault), it requests one from the Kubernetes OIDC issuer.
+
+Azure AD validates that token against the configured federated credential and issues an Azure AD token on behalf of the Managed Identity.
+
+The pod now uses that Azure AD token to call Azure services — no secrets, no client IDs/passwords.
+
+2. Federated Credentials
+
+A Federated Credential is the trust relationship between:
+
+The Azure Managed Identity (UAMI or System Assigned Managed Identity)
+
+An external identity provider (IdP) — in this case, the AKS OIDC issuer
+
+A specific subject (Kubernetes Service Account in a namespace)
+
+This tells Azure AD:
+
+"If I receive a token from this OIDC issuer, with this subject (namespace + KSA), I can trust it and issue an Azure AD token for the Managed Identity."
+
+✅ Types of federated credential subjects (in AKS context):
+
+Service Account: system:serviceaccount:<namespace>:<service-account-name>
+
+Service Account with conditions (namespace restrictions, etc.)
+
+🔑 Putting it together
+
+Workload Identity = mechanism in AKS to let pods use Azure AD identities without secrets.
+
+Federated Credential = the trust configuration in Azure AD that allows a Kubernetes Service Account’s token to be exchanged for an Azure AD token tied to a Managed Identity.
+
+Example flow:
+
+Pod with KSA → requests token.
+
+Token contains issuer = AKS OIDC, subject = KSA.
+
+Azure AD checks federated credential on UAMI.
+
+If matched, issues access token for Azure resource.
