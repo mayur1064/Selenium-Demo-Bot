@@ -1,6 +1,21 @@
-	11. HorizontalPodAutoscaler (HPA)
-		a. Automatically scales the number of pods in a deployment, replica set, or stateful set based on observed CPU utilization or custom metrics
-	12. VerticalPodAutoscaler (VPA)
-		a. Automatically adjusts the CPU and memory requests/limits of containers in pods based on observed usage over time
-		b. It will adjust CPU/memory requests automatically by restarting pods if needed
-VPA and HPA can conflict if used on same Pod , if operating on same metric (CPU usage). VPA can request more CPU and then HPA will scale by noticing high CPU usage.
+Managed Identities are a feature of Azure Active Directory (AAD) that let your applications securely access Azure resources (like Key Vault, Storage Accounts, Databases, etc.) without needing to manage secrets, keys, or credentials
+
+There are two types of Managed Identities:
+
+System-Assigned Managed Identity (SAMI)
+
+Tied to a specific Azure resource (VM, App Service, AKS, etc.).
+
+Created automatically by Azure.
+
+Lifecycle is tied to the resource (deleted when the resource is deleted).
+
+User-Assigned Managed Identity (UAMI)
+
+A standalone Azure resource that you create.
+
+Can be assigned to one or multiple Azure resources.
+
+Lifecycle is independent of any resource (it won’t be deleted if a VM/App Service is deleted).
+
+Useful if you want to reuse the same identity across multiple services or rotate resources without losing identity access.
