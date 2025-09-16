@@ -1,17 +1,3 @@
-In AKS (Azure Kubernetes Service), a SecretProviderClass is a Custom Resource Definition (CRD) used with the Secrets Store CSI Driver.
+The External Secrets Operator (ESO) in AKS (Azure Kubernetes Service) is a Kubernetes operator that helps you safely sync secrets from external secret management systems into Kubernetes Secrets.
 
-It defines how Kubernetes pods can securely access secrets, keys, or certificates from external secret stores like Azure Key Vault without having to copy them manually into Kubernetes secrets.
-
-🔑 Key Points:
-
-The Secrets Store CSI Driver mounts secrets from an external store into Kubernetes pods as volumes.
-
-A SecretProviderClass specifies:
-
-Which secret store to connect to (e.g., Azure Key Vault).
-
-The authentication method (Workload Identity, Managed Identity, or Service Principal).
-
-The list of secrets/keys/certs to fetch.
-
-Whether to sync those secrets into Kubernetes Secrets.
+Normally, Kubernetes Secrets are stored in etcd (the Kubernetes datastore), which can be risky if not encrypted. With ESO, instead of hardcoding or manually creating Secrets, you can pull them dynamically from secret managers like:
