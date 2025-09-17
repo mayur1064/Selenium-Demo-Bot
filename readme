@@ -1,3 +1,8 @@
-The External Secrets Operator (ESO) in AKS (Azure Kubernetes Service) is a Kubernetes operator that helps you safely sync secrets from external secret management systems into Kubernetes Secrets.
-
-Normally, Kubernetes Secrets are stored in etcd (the Kubernetes datastore), which can be risky if not encrypted. With ESO, instead of hardcoding or manually creating Secrets, you can pull them dynamically from secret managers like:
+	8. SecretProviderClass 
+		a. It is a custom Kubernetes resource used with the CSI Secrets Store Driver to mount secrets, keys, or certificates from external secret stores like Azure Key Vault directly into pods as volume
+		b. Specifies what Identity to use to connect to Azure Key Vault ( Pod Identity, workload Identity)
+		c. Tells the CSI driver what secrets to fetch and how to mount them into pods
+		d. CSI  (Container Storage Interface) Driver - 
+			i. Kubernetes Plugin to connect to storage systems, like cloud volumes, file shares, or even secrets
+			ii. In AKS, CSI drivers are used to integrate Kubernetes with ( Azure files, Azure Disks , Azure Key Vault)
+This SecretProviderClass can then be used in multiple Deployments to mount secrets from key Vault.
