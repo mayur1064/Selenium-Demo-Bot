@@ -1,8 +1,81 @@
-	8. SecretProviderClass 
-		a. It is a custom Kubernetes resource used with the CSI Secrets Store Driver to mount secrets, keys, or certificates from external secret stores like Azure Key Vault directly into pods as volume
-		b. Specifies what Identity to use to connect to Azure Key Vault ( Pod Identity, workload Identity)
-		c. Tells the CSI driver what secrets to fetch and how to mount them into pods
-		d. CSI  (Container Storage Interface) Driver - 
-			i. Kubernetes Plugin to connect to storage systems, like cloud volumes, file shares, or even secrets
-			ii. In AKS, CSI drivers are used to integrate Kubernetes with ( Azure files, Azure Disks , Azure Key Vault)
-This SecretProviderClass can then be used in multiple Deployments to mount secrets from key Vault.
+The Client Credentials Flow in OAuth 2.0 is an authorization flow mainly used for machine-to-machine (M2M) communication where no user is involved. Instead of acting on behalf of a user, the client (e.g., backend service, daemon, or API) authenticates itself directly with the authorization server and obtains an access token.
+
+🔑 Key Points:
+
+Actors involved:
+
+Client Application → The service or backend system that needs access.
+
+Authorization Server → Issues tokens after validating client credentials.
+
+Resource Server (API) → The protected resource that the client wants to access.
+
+When to use:
+
+For service-to-service calls.
+
+When no user interaction is required.
+
+Examples: A backend service calling a database API, or a monitoring system sending metrics to a protected API.
+
+Credentials:
+
+The client identifies itself with a Client ID and Client Secret (similar to a username/password but for applications).
+
+These must be securely stored (never in frontend code).
+
+⚙️ Flow Steps:
+
+Client Requests Token
+
+The client sends a request to the authorization server’s token endpoint.
+
+Request includes:
+
+grant_type=client_credentials
+
+client_id and client_secret
+
+scope (optional, defines access levels)
+
+Example request:
+
+POST /oauth2/token
+Host: auth-server.com
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&
+client_id=YOUR_CLIENT_ID&
+client_secret=YOUR_CLIENT_SECRET&
+scope=read:metrics
+
+
+Authorization Server Validates
+
+Checks the client ID & secret.
+
+If valid, it issues an access token (usually a JWT or opaque token).
+
+Example response:
+
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+
+
+Client Uses Access Token
+
+The client attaches the access token in the Authorization header to call the resource server.
+
+Example:
+
+GET /api/data
+Host: resource-server.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+
+
+Resource Server Verifies Token
+
+If valid, it grants access to the requested resource.
