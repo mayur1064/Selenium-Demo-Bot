@@ -1,81 +1,198 @@
-The Client Credentials Flow in OAuth 2.0 is an authorization flow mainly used for machine-to-machine (M2M) communication where no user is involved. Instead of acting on behalf of a user, the client (e.g., backend service, daemon, or API) authenticates itself directly with the authorization server and obtains an access token.
-
-🔑 Key Points:
-
-Actors involved:
-
-Client Application → The service or backend system that needs access.
-
-Authorization Server → Issues tokens after validating client credentials.
-
-Resource Server (API) → The protected resource that the client wants to access.
-
-When to use:
-
-For service-to-service calls.
-
-When no user interaction is required.
-
-Examples: A backend service calling a database API, or a monitoring system sending metrics to a protected API.
-
-Credentials:
-
-The client identifies itself with a Client ID and Client Secret (similar to a username/password but for applications).
-
-These must be securely stored (never in frontend code).
-
-⚙️ Flow Steps:
-
-Client Requests Token
-
-The client sends a request to the authorization server’s token endpoint.
-
-Request includes:
-
-grant_type=client_credentials
-
-client_id and client_secret
-
-scope (optional, defines access levels)
-
-Example request:
-
-POST /oauth2/token
-Host: auth-server.com
-Content-Type: application/x-www-form-urlencoded
-
-grant_type=client_credentials&
-client_id=YOUR_CLIENT_ID&
-client_secret=YOUR_CLIENT_SECRET&
-scope=read:metrics
+	1. Different Components of AKS 
+	2. AKS Key services 
+	3. Istio Service Mesh 
+	4. Helm Charts
+	5. Monitoring & Logging
+	6. Deployment Strategy in AKS 
 
 
-Authorization Server Validates
+Different Components of AKS 
+	1. It  is a managed Kubernetes offering by Microsoft Azure, allows you to deploy containerized applications using Kubernetes without having to manage the Kubernetes control plane or infrastructure directly
+	2. Kubernetes Master node (Control plane) is managed by Azure. We only manage and pay for the agent nodes (worker nodes) where our applications run
+	3. Key components - 
+	4. Control Plane - Managed by Azure . We don't have direct access
+		a. kube-apiserver: Entry point for all administrative tasks. Accepts REST commands
+		b. kube-scheduler: Assigns workloads (pods) to worker nodes based on resource usage, policies, etc.
+		c. kube-controller-manager: Watches the cluster state and makes changes to move towards the desired state
+			i. Node controller - Detects node failures and manages node lifecycle
+			ii. Replication Controller - Ensures the correct number of pod replicas are running
+			iii. Deployment Controller - Manages rolling updates and rollout of Pods.
+		d. etcd: Highly available key-value store that stores cluster configuration and state 
+	5. Node Pools - These are the VMs where your application runs
+		a. System Node Pool -  (Linux only)
+			i. Hosts system pods like CoreDNS, kube-proxy.
+			ii. Core DNS - Resolves Service Names to Cluster Ips , enabling Pods to communicate with each other 
+			iii. Kube-proxy - Maintains network rules on each node to enable service-based communication between pods
+				1) Kubernetes Services get a stable virtual IP (ClusterIP). kube-proxy ensures traffic to this IP is routed to one of the corresponding pods
+			iv. Cannot be scaled down to zero
+		b. User Node Pool - (Linux/Windows)
+			i. Hosts your application workloads (Pods, Deployments)
+	6. Namespace 
+		a. It is a way to logically isolate Kubernetes resources like Pods, Services, Deployments, ConfigMaps, etc., within the same physical cluster
+		b. It helps organize and manage resources in multi-team, multi-environment, or multi-application scenarios
+		c. 
+	7. Pods and Deployments 
+		a. Pods: Smallest deployable units in Kubernetes. Can contain one or more containers
+		b. Deployments: Define desired state (number of replicas, container image, etc.) and manage rollout/upgrades
+	8. Kubelet - 
+		a. It is a  agent that runs on every node in a Kubernetes cluster.
+		b. It acts as a bridge between the node and the Kubernetes control plane.  Ensuring that containers (Pods) are running as expected on a node.
+		c. Watches for new Pods assigned to the node and starts/stops containers using the container runtime (containerd)
+		d. Communicates with the kube-apiserver to report node and pod status
+		e. Keeps track of CPU/memory usage  and enforces resource limit 
+	9. KEDA
+		a. KEDA (Kubernetes Event-Driven Autoscaling) is an open-source component that allows Kubernetes to scale workloads based on external event sources, not just CPU or memory
+		b. Number of messages in a queue, database changes, HTTP requests, etc
+		c. Scaler: A plugin that knows how to query an external system (e.g., Azure Queue, Kafka)
+		d. ScaledObject: Defines what to scale (e.g., a Deployment) and when to scale it
+		e. 
 
-Checks the client ID & secret.
+AKS Services - 
+	1. Namespace 
+	2. Pod - 
+		a. Smallest deployable unit. A single container or group of containers
+	3. Deployment
+		a. Manages stateless applications. Handles rollout and scaling
+	4. StatefulSet
+		a. It is used to manage stateful applications—those that require persistent storage, stable network identities, and ordered deployment or scaling.
+		Stable Hostnames	Each pod gets a stable DNS name based on its name (pod-0, pod-1, etc.).
+		Persistent Storage	Each pod can use its own PersistentVolume that does not get deleted when the pod is rescheduled.
+			Stored in Managed Disk of AKS 
+		Ordered Deployment	Pods are created, updated, and terminated one at a time in order. ( Necessary to form a quorum)
+			In Deployment they may be created in parallel
+		Sticky Identity	A pod retains its identity across reschedules (pod pod-0 always maps to the same volume and DNS).
+		b. Use Case - MongoDB , Kafka (persistent volume)  Zookeeper (Stable networking identity)
+	5. DaemonSet
+		a.  DaemonSet in Kubernetes ensures that a copy of a specific Pod runs on every (or selected) node in the cluster
+		b. Automatically runs one Pod per node. Adds the Pod to new nodes as they're added to the cluster
+		c. Deletes the Pod from nodes when they are removed
+		d. Use Cases - Azure Monitor Agent/ Prometheus Node Exporter on each node for monitoring and log collection
+	6. Service 
+		a.  It provides a stable IP address and DNS name so clients can access your application even as Pods come and go
+		b. Multiple pods can run same app and pod may restart again with different IP
+		c.  Service groups these Pods (by label selector) and gives a consistent endpoint to access them
+		d. Service Types - 
+			Type	Description	Use Case
+			ClusterIP	Default type. Exposes service only inside the cluster.	Internal microservice communication
+			NodePort	Exposes service on static port on each node's IP.	Debugging, simple external access
+			LoadBalancer	Integrates with Azure Load Balancer. Exposes service publicly (with external IP).	Exposing apps to the internet
+				AKS will automatically create a Layer 4 Azure Load Balancer in the resource group of Nodes 
+				Associate the load balancer with your AKS nodes
+		
+		e. 
+	7. ConfigMap
+		a. Used to store non-sensitive configuration data in the form of key-value pairs. Allows you to separate application configuration from your container image
+		b. Can be mounted as a file into a Deployment/Pod 
+	8. SecretProviderClass 
+		a. It is a custom Kubernetes resource used with the CSI Secrets Store Driver to mount secrets, keys, or certificates from external secret stores like Azure Key Vault directly into pods as volume
+		b. Specifies what Identity to use to connect to Azure Key Vault ( Pod Identity, workload Identity)
+		c. Tells the CSI driver what secrets to fetch and how to mount them into pods
+		d. CSI  (Container Storage Interface) Driver - 
+			i. Kubernetes Plugin to connect to storage systems, like cloud volumes, file shares, or even secrets
+			ii. In AKS, CSI drivers are used to integrate Kubernetes with ( Azure files, Azure Disks , Azure Key Vault)
+		e. This SecretProviderClass can then be used in multiple Deployments to mount secrets from key Vault.
+	9. ServiceAccount
+		a. It is used to provide an identity for processes that run in a Pod to interact with the Kubernetes API
+		b. Used by pods to authenticate to the Kubernetes API server
+		c. Automatically mounted into pods as a token so the pod can make API calls if needed
+		d. Every namespace has a default ServiceAccount named default, used if no other SA provided for Pod
+		e. In AKS, Service Accounts can be linked to Azure AD Workload Identity or Managed Identities to securely access Azure services like Key Vault, Blob Storage, etc., without secrets
+			i. Create a ServiceAccount. Annotate it with a clientId of an Azure-managed identity
+			ii. Grant that managed identity permissions to Azure resources
+	10. PersistentVolumeClaim 
+		a. It allows your pod to request and consume persistent storage from the cluster, backed by cloud storage in AKS like Azure Disk or Azure Files 
+		b. While creating PersistentVolumeClaim  , we have to specify the storage Class and access Mode required in the request
+		c. 
+		d. This PVC can then be mounted in a Pod as a volume 
+		e. Access Modes 
+			Mode	Description	Used with
+			ReadWriteOnce (RWO)	Mounted read/write by a single node	Azure Disk
+			ReadOnlyMany (ROX)	Mounted read-only by many nodes	Azure Files
+			ReadWriteMany (RWX)	Mounted read/write by many nodes	Azure Files
+		f. Azure Disk or Azure File share is automatically created by AKS for the PVC and mounted in your Pod
+		StorageClass Name	Backed By	Access Mode	Use Case
+		default or managed-premium	Azure Managed Disk (Premium SSD)	RWO	Default high-performance disk
+		managed-standard	Azure Managed Disk (Standard HDD)	RWO	Cost-effective, low IOPS
+		azurefile	Azure Files (SMB)	RWX	File share across multiple nodes
+		azurefile-premium	Azure Files (Premium SSD-backed)	RWX	High-perf file share
+		azurefile-csi	Azure Files via CSI Driver	RWX	Latest features via CSI
+	11. HorizontalPodAutoscaler (HPA)
+		a. Automatically scales the number of pods in a deployment, replica set, or stateful set based on observed CPU utilization or custom metrics
+	12. VerticalPodAutoscaler (VPA)
+		a. Automatically adjusts the CPU and memory requests/limits of containers in pods based on observed usage over time
+		b. It will adjust CPU/memory requests automatically by restarting pods if needed
+		c. VPA and HPA can conflict if used on same Pod , if operating on same metric (CPU usage). VPA can request more CPU and then HPA will scale by noticing high CPU usage.
 
-If valid, it issues an access token (usually a JWT or opaque token).
 
-Example response:
+		Istio Service Mesh 
+			i. It is a service mesh that helps manage and secure the communication between microservices in a Kubernetes cluster
+			ii. How Istio Works - 
+				1) It deploys Envoy sidecar proxies to each pod
+				2) Traffic between services goes through these proxies, allowing Istio to control and observe it
+				3) Istiod - it's the control plane component that manages all the configuration and coordination across the mesh
+					a) Discovers all services in the Kubernetes cluster and shares them with Envoy sidecars
+					b) Pushes routing, security, and policy configs to Envoy sidecars (e.g., from VirtualService)
+					c) Issues and rotates mTLS certificates for secure communication between services
+				4) Istio Side car injection needs to be enabled at namespace level. So Istio can inject the side car proxies automatically 
+			iii. Istio Gateway - 
+				1) It is  used to control inbound and outbound traffic to the service mesh at the edge of the network
+				2) Manages ingress (incoming) and egress (outgoing) traffic at the edge of the mesh
+				3) You still need a VirtualService to define routing rules for that traffic
+			iv. Ingress Gateway - 
+				1) Specifies for which port and which domains to accept traffic 
+				2)  It does not decide where the traffic goes.
+				3) It is backed by an Envoy proxy Pod that actually listens for traffic
+				4) The port defined in the Ingress Gateway maps to a port that the Envoy proxy Pod (Ingress Gateway Pod) listens on
+				5) That Pod is exposed by a Kubernetes Service — of type LoadBalancer
+				6) Azure Load Balancer is setup for routing the traffic to the Envoy Proxy Pod 
+				7) LoadBalancer port used by the Service maps to the same port on the Load Balancer , exposing it externally
+				8) 
+				9) We can also use wildcard for hosts if we want to allow for multiple hosts *.example.com
+			v. Virtual Service - 
+				1) VirtualService is like the internal traffic controller. It tells Istio what to do with the traffic that enters through the Gateway
+					a) Route to a specific Service in the mesh
+					b) Route based on path, headers, etc
+					c) Can split traffic for canary or blue-green deployment
+				2) It is then linked to a Ingress Gateway for external traffic 
+				3) 
+				4) It specifies what traffic should be routed to which Service . Service then routes the traffic to the Pods 
+				5) VirtualService can also split the traffic percentage wise using DestinationRule (80 , 20 split) during blue green deployment
+				6) 
+	1. Ingress Traffic Flow - 
+		a. Client (External) --> Azure Load Balancer ---> Envoy Kubernetes Service (Load Balancer) --> Envoy Proxy Pod --> Istio Ingress Gateway --> Virtual Service (Routing) --> Application Service ---> Application Pod 
+	2. Egress Gateway -
+		a. Controls and manages outbound traffic from services inside the mesh to external services
+		b. By default, services inside an Istio mesh can make requests directly to the internet (external services).
+			i. No security policies
+			ii. No observability/telemetry
+		c. Egress Gateway solves this by
+			i. Allowing you to monitor, log, and control egress traffic
+			ii. Enforcing IP whitelisting, firewall rules
 
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "token_type": "Bearer",
-  "expires_in": 3600
-}
 
-
-Client Uses Access Token
-
-The client attaches the access token in the Authorization header to call the resource server.
-
-Example:
-
-GET /api/data
-Host: resource-server.com
-Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-
-
-Resource Server Verifies Token
-
-If valid, it grants access to the requested resource.
+Helm Charts
+	1. Package manager for Kubernetes 
+	2.  It simplifies deployment and lifecycle management (install, upgrade, rollback) of applications on Kubernetes
+	3. A Helm Chart is a collection of YAML templates that describe a set of Kubernetes resources required to run an application.
+	4. Structure of a Helm Chart
+		a. 
+	5. How Helm Works
+		a. You write a Helm chart to describe your application
+		b. Helm install -> Helm combines the templates with the values (values.yaml) to generate the final Kubernetes manifests
+		c. Helm sends the manifests to the Kubernetes API server.
+	6. Benefits - 
+		a.  Reusable: One chart can be used across different environments with different values.yaml
+		b.  Versioned: Like versioned packages—rollback to older versions
+	7. All data about releases is saved inside your Kubernetes cluster, specifically as Secrets , in the same namespace where chart was installed
+		a. Release name and version 
+		b. What was deployed ( Rendered manifest) and values passed (values.yml)
+		c. Each time you install or upgrade a Helm release, Helm creates a new Secret with a different revision number
+	8. Helm commands - 
+		a. helm install <release-name> <chart> [--values custom-values.yaml]
+		b. helm upgrade <release-name> <chart> [--values custom-values.yaml]
+		c. helm uninstall <release-name>
+		d. helm rollback <release-name> <revision-number> # Roll back to an earlier revision
+		e. helm list -n <namespace>        # List releases in a namespace
+		f. helm history <release-name>     # Show deployment history
+	
+	
