@@ -1,10 +1,22 @@
-Thank you for your constant guidance and support during my time at UBS. Your leadership and mentorship have been truly invaluable, providing me with the right direction, opportunities, and encouragement to grow both professionally and personally. I am grateful for the trust you placed in me and the learnings I gained under your management
+resource "azurerm_key_vault" "example" {
+  name                = "my-keyvault"
+  resource_group_name = "my-rg"
+  location            = "eastus"
+  tenant_id           = "00000000-0000-0000-0000-000000000000"
+  sku_name            = "standard"
+}
 
+resource "azurerm_key_vault_access_policy" "example_policy" {
+  key_vault_id = azurerm_key_vault.example.id
 
-I would like to sincerely thank you for your invaluable guidance and unwavering support throughout my journey at UBS. Your mentorship has been a constant source of motivation and encouragement, and it has played a significant role in shaping both my professional skills and personal growth.
+  tenant_id = "00000000-0000-0000-0000-000000000000"
+  object_id = "11111111-1111-1111-1111-111111111111"
 
-The knowledge and insights I gained under your guidance have not only helped me navigate challenges with confidence but have also inspired me to push my boundaries and strive for excellence. I truly appreciate the time, effort, and patience you invested in sharing your expertise and providing direction whenever I needed it.
+  key_permissions = ["Get", "List"]
+  secret_permissions = ["Get", "List", "Set"]
+}
 
-Looking back at my journey here, I feel grateful to have had your mentorship, which made my experience at UBS both rewarding and memorable. Thank you once again for being such a strong pillar of support and for always believing in my potential.
-
-Thank you for being such a supportive colleague and for always bringing positivity to the team. I truly appreciate your collaboration, knowledge-sharing, and willingness to help whenever needed. Working with you has been a great experience, and I’ve learned a lot from your approach and dedication. Kudos to you for always going the extra mile!
+import {
+  to = azurerm_key_vault_access_policy.example_policy
+  id = "/subscriptions/<sub_id>/resourceGroups/my-rg/providers/Microsoft.KeyVault/vaults/my-keyvault/objectId/11111111-1111-1111-1111-111111111111"
+}
