@@ -1,46 +1,82 @@
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
-
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
+    @Value("${security.oauth2.issuer}")
+    private String issuer;
+
+    @Value("${security.oauth2.audience}")
+    private String audience;
+
+    @Value("${security.oauth2.required-role}")
+    private String requiredRole;
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-            .csrf(csrf -> csrf.disable())
+            .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                // Secure only APIs under /api/orders/**
-                .requestMatchers("/api/orders/**")
-                    .hasAuthority("SCOPE_orders.read")
-
-                // everything else is open (or authenticated if you want)
+                .requestMatchers("/api/internal/**")
+                    .hasAuthority("ROLE_" + requiredRole)
                 .anyRequest().permitAll()
             )
             .oauth2ResourceServer(oauth2 ->
                 oauth2.jwt(jwt ->
-                    jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())
+                    jwt
+                        .decoder(jwtDecoder())
+                        .jwtAuthenticationConverter(jwtAuthenticationConverter())
                 )
             );
 
         return http.build();
     }
 
+    // ---------------- JWT DECODER ----------------
+
     @Bean
-    public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter scopesConverter =
-                new JwtGrantedAuthoritiesConverter();
+    JwtDecoder jwtDecoder() {
 
-        // Azure AD uses "scp" claim
-        scopesConverter.setAuthoritiesClaimName("scp");
-        scopesConverter.setAuthorityPrefix("SCOPE_");
+        NimbusJwtDecoder decoder =
+            JwtDecoders.fromIssuerLocation(issuer);
 
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(scopesConverter);
+        OAuth2TokenValidator<Jwt> issuerValidator =
+            JwtValidators.createDefaultWithIssuer(issuer);
+
+        OAuth2TokenValidator<Jwt> audienceValidator =
+            jwt -> jwt.getAudience().contains(audience)
+                ? OAuth2TokenValidatorResult.success()
+                : OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error("invalid_audience",
+                        "Token audience mismatch", null)
+                );
+
+        decoder.setJwtValidator(
+            new DelegatingOAuth2TokenValidator<>(
+                issuerValidator,
+                audienceValidator
+            )
+        );
+
+        return decoder;
+    }
+
+    // ---------------- ROLE CONVERTER ----------------
+
+    @Bean
+    JwtAuthenticationConverter jwtAuthenticationConverter() {
+
+        JwtGrantedAuthoritiesConverter rolesConverter =
+            new JwtGrantedAuthoritiesConverter();
+
+        rolesConverter.setAuthoritiesClaimName("roles");
+        rolesConverter.setAuthorityPrefix("ROLE_");
+
+        JwtAuthenticationConverter converter =
+            new JwtAuthenticationConverter();
+
+        converter.setJwtGrantedAuthoritiesConverter(rolesConverter);
+
         return converter;
     }
 }
