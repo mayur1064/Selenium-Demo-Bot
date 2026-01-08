@@ -1,82 +1,152 @@
-@Configuration
-@EnableMethodSecurity
-public class SecurityConfig {
+<properties>
+    <java.version>21</java.version>
+    <spring-boot.version>3.2.2</spring-boot.version>
+    <cloudevents.version>2.5.0</cloudevents.version>
+</properties>
 
-    @Value("${security.oauth2.issuer}")
-    private String issuer;
+<dependencies>
+    <!-- Spring Boot -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter</artifactId>
+    </dependency>
 
-    @Value("${security.oauth2.audience}")
-    private String audience;
+    <!-- Kafka -->
+    <dependency>
+        <groupId>org.springframework.kafka</groupId>
+        <artifactId>spring-kafka</artifactId>
+    </dependency>
 
-    @Value("${security.oauth2.required-role}")
-    private String requiredRole;
+    <!-- CloudEvents -->
+    <dependency>
+        <groupId>io.cloudevents</groupId>
+        <artifactId>cloudevents-core</artifactId>
+        <version>${cloudevents.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.cloudevents</groupId>
+        <artifactId>cloudevents-json-jackson</artifactId>
+        <version>${cloudevents.version}</version>
+    </dependency>
 
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    <!-- Jackson -->
+    <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+    </dependency>
+</dependencies>
 
-        http
-            .csrf(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/internal/**")
-                    .hasAuthority("ROLE_" + requiredRole)
-                .anyRequest().permitAll()
-            )
-            .oauth2ResourceServer(oauth2 ->
-                oauth2.jwt(jwt ->
-                    jwt
-                        .decoder(jwtDecoder())
-                        .jwtAuthenticationConverter(jwtAuthenticationConverter())
-                )
-            );
 
-        return http.build();
+public record GenericEvent(
+        String entityId,
+        Map<String, Object> data
+) {}
+
+
+@Service
+public class CloudEventProducer {
+
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
+    private final String topic;
+
+    public CloudEventProducer(
+            KafkaTemplate<String, Object> kafkaTemplate,
+            ObjectMapper objectMapper,
+            @Value("${app.kafka.topic}") String topic) {
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
+        this.topic = topic;
     }
 
-    // ---------------- JWT DECODER ----------------
+    public void sendEvent(String eventType, GenericEvent payload) {
 
-    @Bean
-    JwtDecoder jwtDecoder() {
+        CloudEvent cloudEvent = CloudEventBuilder.v1()
+                .withId(UUID.randomUUID().toString())
+                .withSource(URI.create("springboot://producer"))
+                .withType(eventType)
+                .withTime(OffsetDateTime.now())
+                .withDataContentType("application/json")
+                .withData(serialize(payload))
+                .build();
 
-        NimbusJwtDecoder decoder =
-            JwtDecoders.fromIssuerLocation(issuer);
+        Message<CloudEvent> message = MessageBuilder
+                .withPayload(cloudEvent)
+                .setHeader(KafkaHeaders.TOPIC, topic)
+                .setHeader("ce_type", eventType) // explicit header
+                .build();
 
-        OAuth2TokenValidator<Jwt> issuerValidator =
-            JwtValidators.createDefaultWithIssuer(issuer);
-
-        OAuth2TokenValidator<Jwt> audienceValidator =
-            jwt -> jwt.getAudience().contains(audience)
-                ? OAuth2TokenValidatorResult.success()
-                : OAuth2TokenValidatorResult.failure(
-                    new OAuth2Error("invalid_audience",
-                        "Token audience mismatch", null)
-                );
-
-        decoder.setJwtValidator(
-            new DelegatingOAuth2TokenValidator<>(
-                issuerValidator,
-                audienceValidator
-            )
-        );
-
-        return decoder;
+        kafkaTemplate.send(message);
     }
 
-    // ---------------- ROLE CONVERTER ----------------
-
-    @Bean
-    JwtAuthenticationConverter jwtAuthenticationConverter() {
-
-        JwtGrantedAuthoritiesConverter rolesConverter =
-            new JwtGrantedAuthoritiesConverter();
-
-        rolesConverter.setAuthoritiesClaimName("roles");
-        rolesConverter.setAuthorityPrefix("ROLE_");
-
-        JwtAuthenticationConverter converter =
-            new JwtAuthenticationConverter();
-
-        converter.setJwtGrantedAuthoritiesConverter(rolesConverter);
-
-        return converter;
+    private byte[] serialize(Object obj) {
+        try {
+            return objectMapper.writeValueAsBytes(obj);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }
+
+
+@Configuration
+public class KafkaConsumerConfig {
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, CloudEvent>
+    kafkaListenerContainerFactory(
+            ConsumerFactory<String, CloudEvent> consumerFactory,
+            @Value("${app.kafka.consume-event-type}") String eventType) {
+
+        ConcurrentKafkaListenerContainerFactory<String, CloudEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(consumerFactory);
+
+        factory.setRecordFilterStrategy(record -> {
+            Header header = record.headers().lastHeader("ce_type");
+            if (header == null) return true;
+
+            String value = new String(header.value());
+            return !eventType.equals(value); // true = filtered out
+        });
+
+        return factory;
+    }
+}
+
+
+@Component
+public class CloudEventConsumer {
+
+    private final ObjectMapper objectMapper;
+
+    public CloudEventConsumer(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
+    @KafkaListener(
+            topics = "${app.kafka.topic}",
+            containerFactory = "kafkaListenerContainerFactory"
+    )
+    public void consume(CloudEvent event) {
+
+        GenericEvent payload = deserialize(event.getData().toBytes());
+        System.out.println("Processed event: " + payload);
+    }
+
+    private GenericEvent deserialize(byte[] data) {
+        try {
+            return objectMapper.readValue(data, GenericEvent.class);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+
+
+producer.sendEvent("order.created",
+        new GenericEvent("ORD-1", Map.of("amount", 100)));
+
+producer.sendEvent("order.cancelled",
+        new GenericEvent("ORD-1", Map.of("reason", "USER_REQUEST")));
