@@ -1,152 +1,171 @@
-<properties>
-    <java.version>21</java.version>
-    <spring-boot.version>3.2.2</spring-boot.version>
-    <cloudevents.version>2.5.0</cloudevents.version>
-</properties>
+package com.example.kafka.event;
 
-<dependencies>
-    <!-- Spring Boot -->
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter</artifactId>
-    </dependency>
+import java.time.OffsetDateTime;
+import java.util.Map;
+import java.util.UUID;
 
-    <!-- Kafka -->
-    <dependency>
-        <groupId>org.springframework.kafka</groupId>
-        <artifactId>spring-kafka</artifactId>
-    </dependency>
+public class GenericKafkaEvent<T> {
 
-    <!-- CloudEvents -->
-    <dependency>
-        <groupId>io.cloudevents</groupId>
-        <artifactId>cloudevents-core</artifactId>
-        <version>${cloudevents.version}</version>
-    </dependency>
-    <dependency>
-        <groupId>io.cloudevents</groupId>
-        <artifactId>cloudevents-json-jackson</artifactId>
-        <version>${cloudevents.version}</version>
-    </dependency>
+    // ---- Core Event Metadata ----
+    private String specVersion = "1.0";
+    private UUID eventId;
+    private String eventType;
+    private String source;
+    private String subject;
+    private OffsetDateTime timestamp;
+    private String contentType = "application/json";
+    private String schemaVersion;
 
-    <!-- Jackson -->
-    <dependency>
-        <groupId>com.fasterxml.jackson.core</groupId>
-        <artifactId>jackson-databind</artifactId>
-    </dependency>
-</dependencies>
+    // ---- Observability ----
+    private String traceId;
+    private String correlationId;
 
+    // ---- Multi-tenancy & Routing ----
+    private String tenantId;
+    private String partitionKey;
 
-public record GenericEvent(
-        String entityId,
-        Map<String, Object> data
-) {}
+    // ---- Extensible Metadata ----
+    private Map<String, Object> headers;
+    private Map<String, Object> extensions;
 
+    // ---- Business Payload (ANY TYPE) ----
+    private T payload;
 
-@Service
-public class CloudEventProducer {
-
-    private final KafkaTemplate<String, Object> kafkaTemplate;
-    private final ObjectMapper objectMapper;
-    private final String topic;
-
-    public CloudEventProducer(
-            KafkaTemplate<String, Object> kafkaTemplate,
-            ObjectMapper objectMapper,
-            @Value("${app.kafka.topic}") String topic) {
-        this.kafkaTemplate = kafkaTemplate;
-        this.objectMapper = objectMapper;
-        this.topic = topic;
+    // ---- Constructors ----
+    public GenericKafkaEvent() {
     }
 
-    public void sendEvent(String eventType, GenericEvent payload) {
-
-        CloudEvent cloudEvent = CloudEventBuilder.v1()
-                .withId(UUID.randomUUID().toString())
-                .withSource(URI.create("springboot://producer"))
-                .withType(eventType)
-                .withTime(OffsetDateTime.now())
-                .withDataContentType("application/json")
-                .withData(serialize(payload))
-                .build();
-
-        Message<CloudEvent> message = MessageBuilder
-                .withPayload(cloudEvent)
-                .setHeader(KafkaHeaders.TOPIC, topic)
-                .setHeader("ce_type", eventType) // explicit header
-                .build();
-
-        kafkaTemplate.send(message);
+    public GenericKafkaEvent(UUID eventId,
+                             String eventType,
+                             String source,
+                             OffsetDateTime timestamp,
+                             T payload) {
+        this.eventId = eventId;
+        this.eventType = eventType;
+        this.source = source;
+        this.timestamp = timestamp;
+        this.payload = payload;
     }
 
-    private byte[] serialize(Object obj) {
-        try {
-            return objectMapper.writeValueAsBytes(obj);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    // ---- Getters & Setters ----
+
+    public String getSpecVersion() {
+        return specVersion;
+    }
+
+    public void setSpecVersion(String specVersion) {
+        this.specVersion = specVersion;
+    }
+
+    public UUID getEventId() {
+        return eventId;
+    }
+
+    public void setEventId(UUID eventId) {
+        this.eventId = eventId;
+    }
+
+    public String getEventType() {
+        return eventType;
+    }
+
+    public void setEventType(String eventType) {
+        this.eventType = eventType;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getSubject() {
+        return subject;
+    }
+
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
+
+    public OffsetDateTime getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(OffsetDateTime timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
+
+    public void setContentType(String contentType) {
+        this.contentType = contentType;
+    }
+
+    public String getSchemaVersion() {
+        return schemaVersion;
+    }
+
+    public void setSchemaVersion(String schemaVersion) {
+        this.schemaVersion = schemaVersion;
+    }
+
+    public String getTraceId() {
+        return traceId;
+    }
+
+    public void setTraceId(String traceId) {
+        this.traceId = traceId;
+    }
+
+    public String getCorrelationId() {
+        return correlationId;
+    }
+
+    public void setCorrelationId(String correlationId) {
+        this.correlationId = correlationId;
+    }
+
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
+    }
+
+    public String getPartitionKey() {
+        return partitionKey;
+    }
+
+    public void setPartitionKey(String partitionKey) {
+        this.partitionKey = partitionKey;
+    }
+
+    public Map<String, Object> getHeaders() {
+        return headers;
+    }
+
+    public void setHeaders(Map<String, Object> headers) {
+        this.headers = headers;
+    }
+
+    public Map<String, Object> getExtensions() {
+        return extensions;
+    }
+
+    public void setExtensions(Map<String, Object> extensions) {
+        this.extensions = extensions;
+    }
+
+    public T getPayload() {
+        return payload;
+    }
+
+    public void setPayload(T payload) {
+        this.payload = payload;
     }
 }
-
-
-@Configuration
-public class KafkaConsumerConfig {
-
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, CloudEvent>
-    kafkaListenerContainerFactory(
-            ConsumerFactory<String, CloudEvent> consumerFactory,
-            @Value("${app.kafka.consume-event-type}") String eventType) {
-
-        ConcurrentKafkaListenerContainerFactory<String, CloudEvent> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
-
-        factory.setConsumerFactory(consumerFactory);
-
-        factory.setRecordFilterStrategy(record -> {
-            Header header = record.headers().lastHeader("ce_type");
-            if (header == null) return true;
-
-            String value = new String(header.value());
-            return !eventType.equals(value); // true = filtered out
-        });
-
-        return factory;
-    }
-}
-
-
-@Component
-public class CloudEventConsumer {
-
-    private final ObjectMapper objectMapper;
-
-    public CloudEventConsumer(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
-
-    @KafkaListener(
-            topics = "${app.kafka.topic}",
-            containerFactory = "kafkaListenerContainerFactory"
-    )
-    public void consume(CloudEvent event) {
-
-        GenericEvent payload = deserialize(event.getData().toBytes());
-        System.out.println("Processed event: " + payload);
-    }
-
-    private GenericEvent deserialize(byte[] data) {
-        try {
-            return objectMapper.readValue(data, GenericEvent.class);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-}
-
-
-producer.sendEvent("order.created",
-        new GenericEvent("ORD-1", Map.of("amount", 100)));
-
-producer.sendEvent("order.cancelled",
-        new GenericEvent("ORD-1", Map.of("reason", "USER_REQUEST")));
